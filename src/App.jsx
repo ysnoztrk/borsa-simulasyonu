@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -54,9 +54,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- YARDIMCI KOMPONENTLER & STİLLER ---
+// --- YARDIMCI & İKONLAR ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/> <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/> </svg> );
 
+// --- STİLLER ---
 const styles = {
   container: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', flex: 1, backgroundColor: '#121212', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, display: 'flex', flexDirection: 'column', height: '100vh' },
@@ -126,29 +127,27 @@ const styles = {
 };
 
 const FOUNDER_EMAIL = 'kurucu@borsa.sim';
+
+// Başlangıç verileri (Sadece veri yoksa yüklenir)
 const INITIAL_COMPANIES = [
-    { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Enerji Çözümleri A.Ş.', ticker: 'ENRCS', price: 210.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Sağlık Grubu Global', ticker: 'SGLBL', price: 320.40, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Otomotiv Lideri A.Ş.', ticker: 'OTLDR', price: 450.60, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Bulut Bilişim Tech', ticker: 'BLTBL', price: 620.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Yeşil Tarım A.Ş.', ticker: 'YSTRM', price: 95.20, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Perakende Zinciri A.Ş.', ticker: 'PRKND', price: 180.90, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'İnşaat Holding', ticker: 'INSHL', price: 112.30, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Turizm ve Otelcilik', ticker: 'TRZMO', price: 250.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
+    { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Enerji Çözümleri A.Ş.', ticker: 'ENRCS', price: 210.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Sağlık Grubu Global', ticker: 'SGLBL', price: 320.40, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Otomotiv Lideri A.Ş.', ticker: 'OTLDR', price: 450.60, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Bulut Bilişim Tech', ticker: 'BLTBL', price: 620.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Yeşil Tarım A.Ş.', ticker: 'YSTRM', price: 95.20, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Perakende Zinciri A.Ş.', ticker: 'PRKND', price: 180.90, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'İnşaat Holding', ticker: 'INSHL', price: 112.30, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Turizm ve Otelcilik', ticker: 'TRZMO', price: 250.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
 ];
 const INITIAL_FOREX = [
-    { name: 'Amerikan Doları', ticker: 'USD', price: 33.50, change: 0, lastChangePercent: 0 },
-    { name: 'Euro', ticker: 'EUR', price: 35.80, change: 0, lastChangePercent: 0 },
-    { name: 'Gram Altın', ticker: 'XAU', price: 2450.00, change: 0, lastChangePercent: 0 },
+    { name: 'Amerikan Doları', ticker: 'USD', price: 34.20, change: 0, lastChangePercent: 0 },
+    { name: 'Euro', ticker: 'EUR', price: 36.80, change: 0, lastChangePercent: 0 },
+    { name: 'Gram Altın', ticker: 'XAU', price: 2500.00, change: 0, lastChangePercent: 0 },
 ];
 const INITIAL_NEWS = [
-  { title: 'TeknoDev Yeni Bir Yapay Zeka Modeli Duyurdu!', content: 'TeknoDev A.Ş., bugün düzenlediği basın toplantısıyla verimliliği %40 artıracak yeni nesil yapay zeka modelini tanıttı. Hisselerde hareketlilik bekleniyor.', date: new Date().toISOString() },
-  { title: 'Gelecek Gıda, Organik Ürün Yelpazesini Genişletiyor', content: 'Gelecek Gıda, artan talebi karşılamak için 5 yeni organik ürününü piyasaya sürdü. Şirket, pazar payını artırmayı hedefliyor.', date: new Date(Date.now() - 86400000).toISOString() },
-];
-const INITIAL_COLUMNS = [
-    { title: 'Piyasalarda Yapay Zeka Rüzgarı', content: 'Son dönemde teknoloji hisselerinde yaşanan yükseliş, yapay zeka alanındaki gelişmelerle doğrudan ilişkili. Yatırımcılar, bu alanda lider olan şirketlere yöneliyor...', author: 'Ahmet Yılmaz', date: new Date().toISOString() }
+  { title: 'TeknoDev Yeni Bir Yapay Zeka Modeli Duyurdu!', content: 'TeknoDev A.Ş., verimliliği %40 artıracak yeni nesil yapay zeka modelini tanıttı.', date: new Date().toISOString() },
 ];
 
 const mulberry32 = (a) => {
@@ -160,11 +159,10 @@ const mulberry32 = (a) => {
     }
 };
 
+// Grafik verisi üreteci (Backend geçmişi yerine şimdilik istemcide simüle ediyoruz)
 const generateConsistentHistoricalData = (ticker, currentPrice, range) => {
     let seed = 0;
-    for (let i = 0; i < ticker.length; i++) {
-        seed += ticker.charCodeAt(i);
-    }
+    for (let i = 0; i < ticker.length; i++) seed += ticker.charCodeAt(i);
     const random = mulberry32(seed);
 
     const now = new Date();
@@ -186,12 +184,11 @@ const generateConsistentHistoricalData = (ticker, currentPrice, range) => {
     for (let i = 0; i < points; i++) {
         const date = new Date(now.getTime() - ((points - 1 - i) * interval));
         labels.push(date.toLocaleDateString('tr-TR'));
-        if (i > 0) {
-            price *= (1 + (random() - 0.5) * 0.15);
-        }
+        if (i > 0) price *= (1 + (random() - 0.5) * 0.15);
         data.push(parseFloat(price.toFixed(2)));
     }
     
+    // Son noktayı güncel fiyata eşitle
     const adjustment = currentPrice / data[data.length - 1];
     data = data.map(p => parseFloat((p * adjustment).toFixed(2)));
     
@@ -208,8 +205,7 @@ export default function App() {
   
   const [companies, setCompanies] = useState([]);
   const [forex, setForex] = useState([]);
-  
-  const [displayedAssets, setDisplayedAssets] = useState({});
+  const [displayedAssets, setDisplayedAssets] = useState({}); // Animasyon için ara değerler
 
   const [news, setNews] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -239,10 +235,7 @@ export default function App() {
   
   const isMarketOpen = marketStatus.manualOverride !== null ? marketStatus.manualOverride : marketStatus.isScheduledOpen;
 
-  // --- SİMÜLASYON MOTORU KALDIRILDI ---
-  // Frontend artık sadece veriyi gösterir, değiştirmez.
-
-  // 1. Auth Durumu
+  // 1. Auth State Listener
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
@@ -251,6 +244,7 @@ export default function App() {
           if (docSnap.exists()) {
             setUser({ uid: authUser.uid, ...docSnap.data() });
           } else {
+             // Kurucu ise otomatik oluştur
              if (authUser.email === FOUNDER_EMAIL) {
                  await setDoc(userDocRef, { 
                      email: authUser.email, 
@@ -259,6 +253,7 @@ export default function App() {
                      isFounder: true 
                  });
              } else {
+                 // Normal kullanıcı henüz verisi yoksa çıkış yap (Register fonksiyonunda oluşturuluyor)
                  signOut(auth);
              }
           }
@@ -271,10 +266,11 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // 2. Veri Dinleyicileri
+  // 2. Firestore Listeners (Piyasa Verileri)
   useEffect(() => {
     if (!user) return;
 
+    // İlk kurulum (Sadece Kurucu için)
     const checkAndCreateInitialData = async () => {
         if (user.isFounder) {
              const marketStatusDocRef = doc(db, 'status', 'market');
@@ -288,6 +284,7 @@ export default function App() {
 
     const handleAssetSnapshot = (snapshot, setter, initialData) => {
         const assetData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id }));
+        // Veri boşsa ve kurucuysa başlat
         if (assetData.length === 0 && user.isFounder) { 
             const batch = writeBatch(db);
             initialData.forEach(asset => { 
@@ -300,30 +297,17 @@ export default function App() {
         }
     };
 
+    // Listener'lar
     const unsubCompanies = onSnapshot(query(collection(db, 'marketData')), (snapshot) => handleAssetSnapshot(snapshot, setCompanies, INITIAL_COMPANIES));
     const unsubForex = onSnapshot(query(collection(db, 'forexData')), (snapshot) => handleAssetSnapshot(snapshot, setForex, INITIAL_FOREX));
-    
     const unsubNews = onSnapshot(query(collection(db, 'news'), orderBy('date', 'desc')), (snapshot) => {
         const newsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-         if (newsData.length === 0 && user.isFounder) {
-            const batch = writeBatch(db);
-            INITIAL_NEWS.forEach(newsItem => {
-                const newDocRef = doc(collection(db, 'news'));
-                batch.set(newDocRef, newsItem);
-            });
-            batch.commit();
-        } else { setNews(newsData); }
+        setNews(newsData); 
     });
-
     const unsubColumns = onSnapshot(query(collection(db, 'columns'), orderBy('date', 'desc')), (snapshot) => {
         const columnsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (columnsData.length === 0 && user.isFounder) {
-            const batch = writeBatch(db);
-            INITIAL_COLUMNS.forEach(col => { batch.set(doc(collection(db, 'columns')), col); });
-            batch.commit();
-        } else { setColumns(columnsData); }
+        setColumns(columnsData); 
     });
-
     const unsubMarket = onSnapshot(doc(db, 'status', 'market'), (docSnap) => {
         if (docSnap.exists()) { 
             const data = docSnap.data();
@@ -343,12 +327,13 @@ export default function App() {
     };
   }, [user]);
 
-  // Animasyon Loop'u (Frontend Interpolation)
-  // Bu kısım kalabilir, çünkü bu veriyi değiştirmez, sadece gelen veriyi yumuşak gösterir.
+  // 3. Fiyat Animasyonu (Interpolation)
+  // Backend veriyi dakikada 1 günceller. Burası aradaki geçişi yumuşatır.
   useEffect(() => {
     let animationFrameId;
     const allAssets = [...companies, ...forex];
 
+    // Eğer piyasa kapalıysa animasyon yapma
     if (!isMarketOpen || allAssets.length === 0) {
         const finalPrices = {};
         allAssets.forEach(asset => {
@@ -371,18 +356,21 @@ export default function App() {
                 return;
             }
 
+            // Son güncelleme zamanı
             const startTime = asset.last_price_update.toMillis();
-            const priceStart = asset.price_start || asset.price;
-            const priceEnd = asset.price;
+            const priceStart = asset.price_start || asset.price; // Güncelleme öncesi fiyat
+            const priceEnd = asset.price; // Güncelleme sonrası hedef fiyat
 
-            // 60 saniyelik bir interpolasyon (Backend 1 dakikada bir güncellediği için)
-            const progress = Math.min((now - startTime) / 60000, 1); 
+            // 60 saniyelik animasyon (Backend güncelleme sıklığına bağlı)
+            const duration = 60000; 
+            const progress = Math.min((now - startTime) / duration, 1);
             
+            // Linear Interpolation (Lerp)
             const interpolatedPrice = priceStart + (priceEnd - priceStart) * progress;
 
-            // Çok hafif bir noise
-            const seed = Math.floor(startTime / 500);
-            const randomNoise = (mulberry32(seed + asset.ticker.charCodeAt(0))() - 0.5) * (priceEnd * 0.0001);
+            // Hafif noise (sanki anlık oynuyormuş gibi)
+            const seed = Math.floor(startTime / 1000); 
+            const randomNoise = (mulberry32(seed + asset.ticker.charCodeAt(0))() - 0.5) * (priceEnd * 0.0005);
 
             const displayedPrice = interpolatedPrice + randomNoise;
             const displayedChange = displayedPrice - priceStart; 
@@ -398,7 +386,6 @@ export default function App() {
     };
 
     animationFrameId = requestAnimationFrame(animate);
-
     return () => cancelAnimationFrame(animationFrameId);
 
   }, [companies, forex, isMarketOpen]);
@@ -406,6 +393,7 @@ export default function App() {
 
   const showModal = (message) => { setModalMessage(message); setModalVisible(true); };
   
+  // ... (Diğer handler fonksiyonları aynı kalıyor: handleRegister, handleLogin, vb.) ...
   const handleRegister = async () => {
       if (!email || !password || !confirmPassword) { showModal("Lütfen tüm alanları doldurun."); return; }
       if (password !== confirmPassword) { showModal("Şifreler eşleşmiyor."); return; }
@@ -507,9 +495,7 @@ export default function App() {
       setIsChartLoading(true);
       setChartTimeRange(range); 
       let history = { labels: [], data: [] };
-
       history = generateConsistentHistoricalData(ticker, currentPrice, range);
-      
       setChartData({ 
           labels: history.labels, 
           datasets: [{ label: 'Fiyat (₺)', data: history.data, borderColor: 'rgb(0, 123, 255)', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.1, pointRadius: 0 }] 
@@ -526,6 +512,7 @@ export default function App() {
       setDetailModalVisible(true); 
   };
 
+  // Render Methods
   const renderAuthScreens = () => ( 
     <div style={styles.authContainer}> 
         <h1 style={styles.authTitle}>Borsa Simülasyonu</h1> 
