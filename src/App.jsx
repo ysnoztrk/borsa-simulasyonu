@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -51,6 +51,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- İKONLAR VE STİLLER ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/> <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/> </svg> );
 
 const styles = {
@@ -104,14 +105,14 @@ const styles = {
   addNewsButton: { backgroundColor: '#007bff', padding: 10, margin: 15, borderRadius: 8, textAlign: 'center', color: '#FFF', fontSize: 14, fontWeight: 'bold', cursor: 'pointer' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 1000, },
   modalView: { width: '90%', maxWidth: '400px', backgroundColor: '#1e1e1e', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.25)', },
-  columnsModalView: { width: '90%', maxWidth: '700px', height: '80vh', backgroundColor: '#2a2a2a', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', },
   detailModalView: { width: '90%', maxWidth: '800px', backgroundColor: '#2a2a2a', borderRadius: 20, padding: '20px', boxShadow: '0 4px 8px rgba(0,0,0,0.3)', },
+  columnsModalView: { width: '90%', maxWidth: '700px', height: '80vh', backgroundColor: '#2a2a2a', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', },
   modalText: { marginBottom: 15, textAlign: 'center', color: '#FFF', fontSize: 16, },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 15, textAlign: 'center', },
   modalInfo: { fontSize: 14, color: '#aaa', marginBottom: 5, },
   modalButtonContainer: { display: 'flex', flexDirection: 'row', marginTop: 20, width: '100%', },
   modalButton: { flex: 1, borderRadius: 10, padding: 12, margin: '0 5px', border: 'none', color: '#fff', fontWeight: 'bold', cursor: 'pointer' },
-  chartContainer: { width: '100%', height: '250px', marginTop: '20px', },
+  chartContainer: { width: '100%', height: '300px', marginTop: '20px', },
   timeRangeContainer: { display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '20px', flexWrap: 'wrap', },
   timeRangeButton: { background: '#333', border: 'none', color: '#fff', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: 12 },
   timeRangeButtonActive: { background: '#007bff', },
@@ -147,6 +148,8 @@ const INITIAL_COLUMNS = [
     { title: 'Piyasalarda Yapay Zeka Rüzgarı', content: 'Son dönemde teknoloji hisselerinde yaşanan yükseliş, yapay zeka alanındaki gelişmelerle doğrudan ilişkili...', author: 'Ahmet Yılmaz', date: new Date().toISOString() }
 ];
 
+// --- GRAFİK ALGORİTMASI ---
+// Tohumlama (Seed) tabanlı rastgele sayı üretici (Tutarlı grafikler için)
 const mulberry32 = (a) => {
     return function() {
       var t = a += 0x6D2B79F5;
@@ -156,35 +159,76 @@ const mulberry32 = (a) => {
     }
 };
 
-// Grafik için Basit Veri Üretici
-const generateConsistentHistoricalData = (ticker, currentPrice, range) => {
+// Bu fonksiyon çok önemli: Gerçek geçmiş verisiyle yapay geçmişi birleştirir.
+const generateSmartHistory = (ticker, currentPrice, range, realHistory = []) => {
     let seed = 0;
     for (let i = 0; i < ticker.length; i++) seed += ticker.charCodeAt(i);
     const random = mulberry32(seed);
 
     let data = [];
     let labels = [];
-    let points, interval;
+    let totalPoints, intervalMs;
     const now = new Date();
 
+    // Zaman aralıkları
     switch (range) {
-        case '1A': points = 30; interval = 24 * 60 * 60 * 1000; break;
-        case '3A': points = 12; interval = 7 * 24 * 60 * 60 * 1000; break;
-        case '1Y': points = 12; interval = 30.44 * 24 * 60 * 60 * 1000; break;
-        case '2Y': points = 24; interval = 30.44 * 24 * 60 * 60 * 1000; break;
-        case '5Y': points = 60; interval = 30.44 * 24 * 60 * 60 * 1000; break;
-        default: points = 30; interval = 24 * 60 * 60 * 1000;
+        case '1H': totalPoints = 24; intervalMs = 3600 * 1000; break; // 1 Gün (Saatlik)
+        case '1A': totalPoints = 30; intervalMs = 24 * 3600 * 1000; break; // 1 Ay (Günlük)
+        case '3A': totalPoints = 45; intervalMs = 2 * 24 * 3600 * 1000; break; 
+        case '1Y': totalPoints = 52; intervalMs = 7 * 24 * 3600 * 1000; break; // Haftalık
+        case '5Y': totalPoints = 60; intervalMs = 30 * 24 * 3600 * 1000; break; // Aylık
+        default: totalPoints = 30; intervalMs = 24 * 3600 * 1000;
     }
 
-    let price = currentPrice * (0.8 + random() * 0.4);
-    for (let i = 0; i < points; i++) {
-        const date = new Date(now.getTime() - ((points - 1 - i) * interval));
-        labels.push(date.toLocaleDateString('tr-TR'));
-        if (i > 0) price *= (1 + (random() - 0.5) * 0.15);
-        data.push(parseFloat(price.toFixed(2)));
+    // 1. Gerçek Verileri İşle
+    // Backend'den gelen verileri (varsa) zaman damgasına göre sırala
+    const validHistory = realHistory
+        .map(h => ({ price: h.p, time: h.t }))
+        .sort((a, b) => a.time - b.time);
+
+    // 2. Geçmişi İnşa Et (Geriye Doğru)
+    let currentSimPrice = currentPrice;
+    
+    // Eğer gerçek veri varsa, simülasyonun başlangıç noktası en eski gerçek veri olsun
+    // Böylece kopukluk olmaz.
+    if (validHistory.length > 0) {
+        // En güncel veriyi sona ekle
     }
-    const adjustment = currentPrice / data[data.length - 1];
-    data = data.map(p => parseFloat((p * adjustment).toFixed(2)));
+
+    // Geriye doğru noktaları oluştur
+    for (let i = 0; i < totalPoints; i++) {
+        const pointTime = now.getTime() - (i * intervalMs);
+        let priceAtPoint;
+
+        // Bu zaman dilimine denk gelen gerçek veri var mı?
+        // (Tolerans aralığı: interval'in yarısı kadar)
+        const realDataPoint = validHistory.find(h => Math.abs(h.time - pointTime) < (intervalMs / 2));
+
+        if (realDataPoint) {
+            priceAtPoint = realDataPoint.price;
+            currentSimPrice = priceAtPoint; // Simülasyonu gerçek veriye kalibre et
+        } else {
+            // Veri yoksa: Rastgele ama tutarlı (Seed sayesinde hep aynı) geçmiş üret
+            // Uzak geçmişe gidildikçe fiyattaki değişim artar
+            // Ancak "currentSimPrice" referans alındığı için grafik kopmaz.
+            
+            // Rastgele değişim: %-3 ile %+3 arası (range'e göre değişebilir)
+            const fluctuation = (random() - 0.5) * 0.05; 
+            
+            // Geçmiş fiyatı hesaplarken: Şimdiki fiyattan geriye doğru gidiyoruz
+            // Bugunkü fiyat = Dünkü Fiyat * (1 + değişim)
+            // Dünkü Fiyat = Bugunkü Fiyat / (1 + değişim)
+            priceAtPoint = currentSimPrice / (1 + fluctuation);
+            currentSimPrice = priceAtPoint;
+        }
+
+        data.unshift(parseFloat(priceAtPoint.toFixed(2))); // Başa ekle
+        labels.unshift(new Date(pointTime).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }));
+    }
+    
+    // Son noktayı her zaman güncel fiyata zorla (Grafik ucu boş kalmasın)
+    data[data.length - 1] = currentPrice;
+
     return { labels, data };
 };
 
@@ -211,11 +255,14 @@ export default function App() {
   const [newNewsTitle, setNewNewsTitle] = useState('');
   const [newNewsContent, setNewNewsContent] = useState('');
   const [newsEffects, setNewsEffects] = useState({});
+  
+  // --- DETAY & GRAFİK STATE'LERİ ---
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedStockForDetail, setSelectedStockForDetail] = useState(null);
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
-  const [chartTimeRange, setChartTimeRange] = useState('1A');
+  const [chartTimeRange, setChartTimeRange] = useState('1A'); // Varsayılan 1 Ay
   const [isChartLoading, setIsChartLoading] = useState(false);
+  
   const [columnsModalVisible, setColumnsModalVisible] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState('');
   const [newColumnAuthor, setNewColumnAuthor] = useState('');
@@ -247,7 +294,7 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // 2. Data Listeners (SADECE VERİYİ ALIR, ANİMASYON YAPMAZ)
+  // 2. Data Listeners
   useEffect(() => {
     if (!user) return;
 
@@ -262,11 +309,8 @@ export default function App() {
     };
     checkAndCreateInitialData();
 
-    // Veri değiştiğinde direkt state'e yaz. Animasyon yok.
     const unsubCompanies = onSnapshot(query(collection(db, 'marketData')), (snapshot) => {
         setCompanies(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id })));
-        
-        // Veri boşsa başlangıç verisini yükle (Sadece kurucu)
         if (snapshot.empty && user.isFounder) {
             const batch = writeBatch(db);
             INITIAL_COMPANIES.forEach(asset => batch.set(doc(db, 'marketData', asset.ticker), asset));
@@ -276,7 +320,6 @@ export default function App() {
 
     const unsubForex = onSnapshot(query(collection(db, 'forexData')), (snapshot) => {
         setForex(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id })));
-        
         if (snapshot.empty && user.isFounder) {
             const batch = writeBatch(db);
             INITIAL_FOREX.forEach(asset => batch.set(doc(db, 'forexData', asset.ticker), asset));
@@ -311,7 +354,7 @@ export default function App() {
     };
   }, [user]);
 
-
+  // --- HANDLERS ---
   const showModal = (message) => { setModalMessage(message); setModalVisible(true); };
   
   const handleRegister = async () => {
@@ -333,6 +376,8 @@ export default function App() {
   const handleLogout = () => { signOut(auth); };
   
   const openTradeModal = (asset, action) => {
+      // Detay modalı açıksa kapat, işlem modalını aç
+      setDetailModalVisible(false);
       const officialAsset = [...companies, ...forex].find(a => a.ticker === asset.ticker);
       setSelectedAsset(officialAsset); 
       setTradeAction(action); 
@@ -397,10 +442,9 @@ export default function App() {
       try {
         const marketStatusRef = doc(db, 'status', 'market');
         let nextState;
-        if (isMarketOpen) nextState = false; // Kapat
-        else nextState = true; // Aç
+        if (isMarketOpen) nextState = false; 
+        else nextState = true; 
 
-        // Doküman yoksa oluşturarak güncelle (setDoc merge: true)
         if (nextState === true) {
              const now = new Date();
              const newExpiryDate = new Date();
@@ -417,25 +461,49 @@ export default function App() {
       }
   };
   
+  // --- GRAFİK YÖNETİMİ ---
+  const handleStockClick = async (asset) => {
+      setSelectedStockForDetail(asset);
+      setDetailModalVisible(true);
+      // Varsayılan olarak 1 Aylık veriyi yükle
+      handleTimeRangeChange(asset.ticker, asset.price, '1A');
+  };
+
   const handleTimeRangeChange = async (ticker, currentPrice, range) => { 
       setIsChartLoading(true);
       setChartTimeRange(range); 
-      let history = { labels: [], data: [] };
-      history = generateConsistentHistoricalData(ticker, currentPrice, range);
-      setChartData({ 
-          labels: history.labels, 
-          datasets: [{ label: 'Fiyat (₺)', data: history.data, borderColor: 'rgb(0, 123, 255)', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.1, pointRadius: 0 }] 
-      }); 
-      setIsChartLoading(false);
-  };
+      
+      try {
+          // 1. Veritabanından gerçek geçmişi çek
+          const historyDocRef = doc(db, 'priceHistory', ticker);
+          const historySnap = await getDoc(historyDocRef);
+          
+          let realHistory = [];
+          if (historySnap.exists()) {
+              realHistory = historySnap.data().history || [];
+          }
 
-  const handleStockClick = (asset) => { 
-      const officialAsset = [...companies, ...forex].find(a => a.ticker === asset.ticker);
-      if(!officialAsset) return;
-      setSelectedStockForDetail(officialAsset); 
-      setChartTimeRange('1A');
-      handleTimeRangeChange(officialAsset.ticker, officialAsset.price, '1A');
-      setDetailModalVisible(true); 
+          // 2. Eksik kısımları akıllı algoritma ile doldur
+          const { labels, data } = generateSmartHistory(ticker, currentPrice, range, realHistory);
+          
+          setChartData({ 
+              labels: labels, 
+              datasets: [{ 
+                  label: 'Fiyat (₺)', 
+                  data: data, 
+                  borderColor: 'rgb(0, 123, 255)', 
+                  backgroundColor: 'rgba(0, 123, 255, 0.1)', 
+                  fill: true, 
+                  tension: 0.1, 
+                  pointRadius: 2,
+                  pointHoverRadius: 5
+              }] 
+          }); 
+      } catch (error) {
+          console.error("Grafik verisi yüklenirken hata:", error);
+      } finally {
+          setIsChartLoading(false);
+      }
   };
 
   const renderAuthScreens = () => ( 
@@ -451,7 +519,6 @@ export default function App() {
   );
 
   const AssetRow = ({ asset }) => {
-    // Sadece veritabanından gelen veriyi göster
     const changeAmount = asset.change || 0;
     const prevPrice = asset.price - changeAmount;
     const percentageChange = prevPrice !== 0 ? (changeAmount / prevPrice) * 100 : 0;
@@ -500,5 +567,50 @@ export default function App() {
       return <div style={{...styles.container, ...styles.authContainer, fontSize: 20}}>Yükleniyor...</div>
   }
 
-  return ( <div style={styles.container}> {user === null ? renderAuthScreens() : renderAppContent()} {modalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <p style={styles.modalText}>{modalMessage}</p> <button style={{...styles.button, width: 'auto', padding: '10px 30px'}} onClick={() => setModalVisible(false)}> Tamam </button> </div> </div> )} {tradeModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>{selectedAsset?.ticker} {tradeAction === 'buy' ? 'Al' : 'Sat'}</h2> <p style={styles.modalInfo}>Fiyat: ₺{selectedAsset?.price.toFixed(2)}</p> <p style={styles.modalInfo}>Nakit Bakiye: ₺{user?.balance.toFixed(2)}</p> {tradeAction === 'sell' && <p style={styles.modalInfo}>Sahip Olunan: {user?.portfolio[selectedAsset?.ticker] || 0} Adet</p>} <input style={styles.input} placeholder="Adet Girin" type="number" value={tradeAmount} onChange={(e) => setTradeAmount(e.target.value)} /> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setTradeModalVisible(false)}> İptal </button> <button style={{...styles.modalButton, backgroundColor: tradeAction === 'buy' ? '#28a745' : '#dc3545'}} onClick={executeTrade}> Onayla </button> </div> </div> </div> )} {addNewsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>Yeni Haber Ekle</h2> <input style={styles.input} placeholder="Haber Başlığı" value={newNewsTitle} onChange={(e) => setNewNewsTitle(e.target.value)} /> <textarea style={{...styles.input, height: 80, resize: 'vertical'}} placeholder="Haber İçeriği" value={newNewsContent} onChange={(e) => setNewNewsContent(e.target.value)} /> <h3 style={styles.stockEffectTitle}>Hisse Senedi Etkileri (24 Saat)</h3> <div style={styles.effectsContainer}> {companies.map(company => ( <div key={company.ticker} style={styles.effectRow}> <span style={{flex: 1}}>{company.ticker}</span> <input type="number" placeholder="Etki %" style={styles.effectInput} value={newsEffects[company.ticker] || ''} onChange={(e) => { const newEffects = { ...newsEffects }; const value = e.target.value; if (value === '') { delete newEffects[company.ticker]; } else { newEffects[company.ticker] = parseFloat(value); } setNewsEffects(newEffects); }} /> </div> ))} </div> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setAddNewsModalVisible(false)}>İptal</button> <button style={{...styles.modalButton, backgroundColor: '#007bff'}} onClick={handleAddNews}>Yayınla ve Etki Et</button> </div> </div> </div> )} {columnsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.columnsModalView}> <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> <h2 style={styles.modalTitle}>Köşe Yazıları</h2> <button style={{background:'none', border:'none', color:'#fff', fontSize: '24px', cursor:'pointer'}} onClick={() => setColumnsModalVisible(false)}>×</button> </div> {user.isFounder && ( <div style={{padding: '10px', border: '1px solid #444', borderRadius: '10px', marginBottom: '20px'}}> <h3 style={{marginTop: 0}}>Yeni Yazı Ekle</h3> <input style={styles.input} placeholder="Yazı Başlığı" value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} /> <input style={styles.input} placeholder="Yazar Adı" value={newColumnAuthor} onChange={(e) => setNewColumnAuthor(e.target.value)} /> <textarea style={{...styles.input, height: '100px', resize: 'vertical'}} placeholder="İçerik" value={newColumnContent} onChange={(e) => setNewColumnContent(e.target.value)} /> <button style={styles.button} onClick={handleAddColumn}>Ekle</button> </div> )} <div style={{flex: 1, overflowY: 'auto'}}> {columns.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteColumn(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={{fontSize: 12, color: '#007bff', margin: '5px 0'}}>{item.author}</p> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> </div> </div> )} {detailModalVisible && selectedStockForDetail && ( <div style={styles.modalOverlay} onClick={() => setDetailModalVisible(false)}> <div style={styles.detailModalView} onClick={(e) => e.stopPropagation()}> <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> <h2 style={styles.modalTitle}>{selectedStockForDetail.name} ({selectedStockForDetail.ticker})</h2> <button style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer'}} onClick={() => setDetailModalVisible(false)}>×</button> </div> <p style={styles.stockPrice}>Güncel Fiyat: ₺{selectedStockForDetail.price.toFixed(2)}</p> <div style={styles.chartContainer}> {isChartLoading ? <p style={{textAlign: 'center', color: '#aaa'}}>Grafik Yükleniyor...</p> : <Line data={chartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: 'auto' } } }} />} </div> <div style={styles.timeRangeContainer}> {['1G', '1H', '1A', '3A', '1Y', '2Y', '5Y'].map(range => ( <button key={range} style={{...styles.timeRangeButton, ...(chartTimeRange === range && styles.timeRangeButtonActive)}} onClick={() => handleTimeRangeChange(selectedStockForDetail.ticker, selectedStockForDetail.price, range)}> {range} </button> ))} </div> </div> </div> )} </div> );
+  return ( <div style={styles.container}> {user === null ? renderAuthScreens() : renderAppContent()} {modalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <p style={styles.modalText}>{modalMessage}</p> <button style={{...styles.button, width: 'auto', padding: '10px 30px'}} onClick={() => setModalVisible(false)}> Tamam </button> </div> </div> )} {tradeModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>{selectedAsset?.ticker} {tradeAction === 'buy' ? 'Al' : 'Sat'}</h2> <p style={styles.modalInfo}>Fiyat: ₺{selectedAsset?.price.toFixed(2)}</p> <p style={styles.modalInfo}>Nakit Bakiye: ₺{user?.balance.toFixed(2)}</p> {tradeAction === 'sell' && <p style={styles.modalInfo}>Sahip Olunan: {user?.portfolio[selectedAsset?.ticker] || 0} Adet</p>} <input style={styles.input} placeholder="Adet Girin" type="number" value={tradeAmount} onChange={(e) => setTradeAmount(e.target.value)} /> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setTradeModalVisible(false)}> İptal </button> <button style={{...styles.modalButton, backgroundColor: tradeAction === 'buy' ? '#28a745' : '#dc3545'}} onClick={executeTrade}> Onayla </button> </div> </div> </div> )} {addNewsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>Yeni Haber Ekle</h2> <input style={styles.input} placeholder="Haber Başlığı" value={newNewsTitle} onChange={(e) => setNewNewsTitle(e.target.value)} /> <textarea style={{...styles.input, height: 80, resize: 'vertical'}} placeholder="Haber İçeriği" value={newNewsContent} onChange={(e) => setNewNewsContent(e.target.value)} /> <h3 style={styles.stockEffectTitle}>Hisse Senedi Etkileri (24 Saat)</h3> <div style={styles.effectsContainer}> {companies.map(company => ( <div key={company.ticker} style={styles.effectRow}> <span style={{flex: 1}}>{company.ticker}</span> <input type="number" placeholder="Etki %" style={styles.effectInput} value={newsEffects[company.ticker] || ''} onChange={(e) => { const newEffects = { ...newsEffects }; const value = e.target.value; if (value === '') { delete newEffects[company.ticker]; } else { newEffects[company.ticker] = parseFloat(value); } setNewsEffects(newEffects); }} /> </div> ))} </div> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setAddNewsModalVisible(false)}>İptal</button> <button style={{...styles.modalButton, backgroundColor: '#007bff'}} onClick={handleAddNews}>Yayınla ve Etki Et</button> </div> </div> </div> )} {columnsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.columnsModalView}> <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> <h2 style={styles.modalTitle}>Köşe Yazıları</h2> <button style={{background:'none', border:'none', color:'#fff', fontSize: '24px', cursor:'pointer'}} onClick={() => setColumnsModalVisible(false)}>×</button> </div> {user.isFounder && ( <div style={{padding: '10px', border: '1px solid #444', borderRadius: '10px', marginBottom: '20px'}}> <h3 style={{marginTop: 0}}>Yeni Yazı Ekle</h3> <input style={styles.input} placeholder="Yazı Başlığı" value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} /> <input style={styles.input} placeholder="Yazar Adı" value={newColumnAuthor} onChange={(e) => setNewColumnAuthor(e.target.value)} /> <textarea style={{...styles.input, height: '100px', resize: 'vertical'}} placeholder="İçerik" value={newColumnContent} onChange={(e) => setNewColumnContent(e.target.value)} /> <button style={styles.button} onClick={handleAddColumn}>Ekle</button> </div> )} <div style={{flex: 1, overflowY: 'auto'}}> {columns.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteColumn(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={{fontSize: 12, color: '#007bff', margin: '5px 0'}}>{item.author}</p> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> </div> </div> )} 
+  
+  {detailModalVisible && selectedStockForDetail && ( 
+    <div style={styles.modalOverlay} onClick={() => setDetailModalVisible(false)}> 
+        <div style={styles.detailModalView} onClick={(e) => e.stopPropagation()}> 
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> 
+                <h2 style={styles.modalTitle}>{selectedStockForDetail.name} ({selectedStockForDetail.ticker})</h2> 
+                <button style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer'}} onClick={() => setDetailModalVisible(false)}>×</button> 
+            </div> 
+            <p style={styles.stockPrice}>Güncel Fiyat: ₺{selectedStockForDetail.price.toFixed(2)}</p> 
+            <div style={styles.chartContainer}> 
+                {isChartLoading ? 
+                    <p style={{textAlign: 'center', color: '#aaa'}}>Veriler Yükleniyor...</p> : 
+                    <Line data={chartData} options={{ 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false } }, 
+                        scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: 'auto' } } 
+                    }} />
+                } 
+            </div> 
+            <div style={styles.timeRangeContainer}> 
+                {['1H', '1A', '3A', '1Y', '5Y'].map(range => ( 
+                    <button key={range} 
+                        style={{...styles.timeRangeButton, ...(chartTimeRange === range && styles.timeRangeButtonActive)}} 
+                        onClick={() => handleTimeRangeChange(selectedStockForDetail.ticker, selectedStockForDetail.price, range)}> 
+                        {range} 
+                    </button> 
+                ))} 
+            </div>
+            
+            <div style={{display: 'flex', marginTop: 20}}>
+                <button 
+                    style={{...styles.modalButton, ...styles.buyButton}} 
+                    onClick={() => openTradeModal(selectedStockForDetail, 'buy')}>
+                    AL
+                </button>
+                <button 
+                    style={{...styles.modalButton, ...styles.sellButton}} 
+                    onClick={() => openTradeModal(selectedStockForDetail, 'sell')}>
+                    SAT
+                </button>
+            </div>
+        </div> 
+    </div> 
+  )} 
+  </div> );
 }
