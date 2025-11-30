@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -32,7 +32,7 @@ import {
     addDoc,
     orderBy,
     deleteDoc,
-    Timestamp // Timestamp import edildi
+    Timestamp
 } from 'firebase/firestore';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -122,29 +122,29 @@ const styles = {
 };
 
 const FOUNDER_EMAIL = 'kurucu@borsa.sim';
-// Initial data sadece boşsa kullanılır
+// Initial data (sadece boşsa kullanılır)
 const INITIAL_COMPANIES = [
-    { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Enerji Çözümleri A.Ş.', ticker: 'ENRCS', price: 210.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Sağlık Grubu Global', ticker: 'SGLBL', price: 320.40, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Otomotiv Lideri A.Ş.', ticker: 'OTLDR', price: 450.60, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Bulut Bilişim Tech', ticker: 'BLTBL', price: 620.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Yeşil Tarım A.Ş.', ticker: 'YSTRM', price: 95.20, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Perakende Zinciri A.Ş.', ticker: 'PRKND', price: 180.90, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'İnşaat Holding', ticker: 'INSHL', price: 112.30, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
-    { name: 'Turizm ve Otelcilik', ticker: 'TRZMO', price: 250.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
+    { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Enerji Çözümleri A.Ş.', ticker: 'ENRCS', price: 210.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Sağlık Grubu Global', ticker: 'SGLBL', price: 320.40, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Otomotiv Lideri A.Ş.', ticker: 'OTLDR', price: 450.60, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Bulut Bilişim Tech', ticker: 'BLTBL', price: 620.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Yeşil Tarım A.Ş.', ticker: 'YSTRM', price: 95.20, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Perakende Zinciri A.Ş.', ticker: 'PRKND', price: 180.90, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'İnşaat Holding', ticker: 'INSHL', price: 112.30, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
+    { name: 'Turizm ve Otelcilik', ticker: 'TRZMO', price: 250.00, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0 },
 ];
 const INITIAL_FOREX = [
-    { name: 'Amerikan Doları', ticker: 'USD', price: 33.50, change: 0, lastChangePercent: 0 },
-    { name: 'Euro', ticker: 'EUR', price: 35.80, change: 0, lastChangePercent: 0 },
-    { name: 'Gram Altın', ticker: 'XAU', price: 2450.00, change: 0, lastChangePercent: 0 },
+    { name: 'Amerikan Doları', ticker: 'USD', price: 34.20, change: 0, lastChangePercent: 0 },
+    { name: 'Euro', ticker: 'EUR', price: 36.80, change: 0, lastChangePercent: 0 },
+    { name: 'Gram Altın', ticker: 'XAU', price: 2500.00, change: 0, lastChangePercent: 0 },
 ];
 const INITIAL_NEWS = [
-  { title: 'TeknoDev Yeni Bir Yapay Zeka Modeli Duyurdu!', content: 'TeknoDev A.Ş., bugün düzenlediği basın toplantısıyla verimliliği %40 artıracak yeni nesil yapay zeka modelini tanıttı. Hisselerde hareketlilik bekleniyor.', date: new Date().toISOString() },
+  { title: 'TeknoDev Yeni Bir Yapay Zeka Modeli Duyurdu!', content: 'TeknoDev A.Ş., bugün düzenlediği basın toplantısıyla verimliliği %40 artıracak yeni nesil yapay zeka modelini tanıttı.', date: new Date().toISOString() },
 ];
 const INITIAL_COLUMNS = [
-    { title: 'Piyasalarda Yapay Zeka Rüzgarı', content: 'Son dönemde teknoloji hisselerinde yaşanan yükseliş, yapay zeka alanındaki gelişmelerle doğrudan ilişkili. Yatırımcılar, bu alanda lider olan şirketlere yöneliyor...', author: 'Ahmet Yılmaz', date: new Date().toISOString() }
+    { title: 'Piyasalarda Yapay Zeka Rüzgarı', content: 'Son dönemde teknoloji hisselerinde yaşanan yükseliş, yapay zeka alanındaki gelişmelerle doğrudan ilişkili...', author: 'Ahmet Yılmaz', date: new Date().toISOString() }
 ];
 
 const mulberry32 = (a) => {
@@ -156,17 +156,16 @@ const mulberry32 = (a) => {
     }
 };
 
+// Grafik için Basit Veri Üretici
 const generateConsistentHistoricalData = (ticker, currentPrice, range) => {
     let seed = 0;
-    for (let i = 0; i < ticker.length; i++) {
-        seed += ticker.charCodeAt(i);
-    }
+    for (let i = 0; i < ticker.length; i++) seed += ticker.charCodeAt(i);
     const random = mulberry32(seed);
 
-    const now = new Date();
     let data = [];
     let labels = [];
     let points, interval;
+    const now = new Date();
 
     switch (range) {
         case '1A': points = 30; interval = 24 * 60 * 60 * 1000; break;
@@ -200,12 +199,6 @@ export default function App() {
   const [companies, setCompanies] = useState([]);
   const [forex, setForex] = useState([]);
   
-  // --- GÖRÜNTÜLEME VE ANİMASYON STATE'LERİ ---
-  const [displayedAssets, setDisplayedAssets] = useState({}); 
-  
-  // Animasyon için referans
-  const animationRefs = useRef({}); 
-
   const [news, setNews] = useState([]);
   const [columns, setColumns] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -234,7 +227,7 @@ export default function App() {
   
   const isMarketOpen = marketStatus.manualOverride !== null ? marketStatus.manualOverride : marketStatus.isScheduledOpen;
 
-  // 1. Auth Durumu
+  // 1. Auth Listener
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
@@ -254,16 +247,14 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // 2. Firestore Verilerini Dinle
+  // 2. Data Listeners (SADECE VERİYİ ALIR, ANİMASYON YAPMAZ)
   useEffect(() => {
     if (!user) return;
 
-    // Başlangıç verilerini kontrol et
     const checkAndCreateInitialData = async () => {
         if (user.isFounder) {
              const marketStatusDocRef = doc(db, 'status', 'market');
              const marketSnap = await getDoc(marketStatusDocRef);
-             // Dosya yoksa oluştur
              if (!marketSnap.exists()) {
                await setDoc(marketStatusDocRef, { isScheduledOpen: false, manualOverride: null, volatility: 0.04, overrideExpiry: null });
              }
@@ -271,31 +262,34 @@ export default function App() {
     };
     checkAndCreateInitialData();
 
-    const handleAssetSnapshot = (snapshot, setter, initialData) => {
-        const assetData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id }));
-        if (assetData.length === 0 && user.isFounder) { 
+    // Veri değiştiğinde direkt state'e yaz. Animasyon yok.
+    const unsubCompanies = onSnapshot(query(collection(db, 'marketData')), (snapshot) => {
+        setCompanies(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id })));
+        
+        // Veri boşsa başlangıç verisini yükle (Sadece kurucu)
+        if (snapshot.empty && user.isFounder) {
             const batch = writeBatch(db);
-            initialData.forEach(asset => { 
-                const assetRef = doc(db, snapshot.query.parent.id, asset.ticker);
-                batch.set(assetRef, asset); 
-            });
+            INITIAL_COMPANIES.forEach(asset => batch.set(doc(db, 'marketData', asset.ticker), asset));
             batch.commit();
-        } else {
-            setter(assetData);
         }
-    };
+    });
 
-    const unsubCompanies = onSnapshot(query(collection(db, 'marketData')), (snapshot) => handleAssetSnapshot(snapshot, setCompanies, INITIAL_COMPANIES));
-    const unsubForex = onSnapshot(query(collection(db, 'forexData')), (snapshot) => handleAssetSnapshot(snapshot, setForex, INITIAL_FOREX));
+    const unsubForex = onSnapshot(query(collection(db, 'forexData')), (snapshot) => {
+        setForex(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id })));
+        
+        if (snapshot.empty && user.isFounder) {
+            const batch = writeBatch(db);
+            INITIAL_FOREX.forEach(asset => batch.set(doc(db, 'forexData', asset.ticker), asset));
+            batch.commit();
+        }
+    });
     
     const unsubNews = onSnapshot(query(collection(db, 'news'), orderBy('date', 'desc')), (snapshot) => {
-        const newsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setNews(newsData); 
+        setNews(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     });
 
     const unsubColumns = onSnapshot(query(collection(db, 'columns'), orderBy('date', 'desc')), (snapshot) => {
-        const columnsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        setColumns(columnsData); 
+        setColumns(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     });
 
     const unsubMarket = onSnapshot(doc(db, 'status', 'market'), (docSnap) => {
@@ -316,75 +310,6 @@ export default function App() {
         unsubMarket(); 
     };
   }, [user]);
-
-  // 3. GLITCH-FREE ANİMASYON SİSTEMİ
-  useEffect(() => {
-    let animationFrameId;
-    const allAssets = [...companies, ...forex];
-
-    if (!isMarketOpen || allAssets.length === 0) {
-        const finalPrices = {};
-        allAssets.forEach(asset => {
-            finalPrices[asset.ticker] = { price: asset.price, change: asset.change || 0 };
-            animationRefs.current[asset.ticker] = null;
-        });
-        setDisplayedAssets(finalPrices);
-        return;
-    }
-
-    const animate = () => {
-        const now = Date.now();
-        const newDisplayedAssets = {};
-
-        allAssets.forEach(asset => {
-            const ticker = asset.ticker;
-            // Timestamp kontrolü: Eğer DB'den henüz timestamp gelmediyse 0 kabul et
-            const assetLastUpdate = asset.last_price_update ? asset.last_price_update.toMillis() : 0;
-            
-            let animState = animationRefs.current[ticker];
-
-            // Yeni bir güncelleme geldiyse veya animasyon state'i yoksa başlat
-            if (!animState || assetLastUpdate > animState.lastUpdate) {
-                const currentDisplay = displayedAssets[ticker] ? displayedAssets[ticker].price : asset.price;
-                
-                animState = {
-                    startVal: currentDisplay,
-                    endVal: asset.price,
-                    startTime: now,
-                    duration: 15000, // 15 Saniyelik Süzülme
-                    lastUpdate: assetLastUpdate
-                };
-                animationRefs.current[ticker] = animState;
-            }
-
-            const elapsed = now - animState.startTime;
-            let progress = Math.min(elapsed / animState.duration, 1);
-            
-            let interpolatedPrice = animState.startVal + (animState.endVal - animState.startVal) * progress;
-
-            if (progress < 1) {
-                const noise = Math.sin(now / 200) * (asset.price * 0.0002); 
-                interpolatedPrice += noise;
-            } else {
-                interpolatedPrice = asset.price;
-            }
-            
-            const openingPrice = asset.price_start || asset.price; 
-            const currentChange = interpolatedPrice - openingPrice;
-
-            newDisplayedAssets[ticker] = {
-                price: interpolatedPrice,
-                change: currentChange
-            };
-        });
-
-        setDisplayedAssets(newDisplayedAssets);
-        animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animationFrameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [companies, forex, isMarketOpen]); // displayedAssets dependency'e eklenmemeli!
 
 
   const showModal = (message) => { setModalMessage(message); setModalVisible(true); };
@@ -471,20 +396,9 @@ export default function App() {
   const handleMarketOverrideToggle = async () => {
       try {
         const marketStatusRef = doc(db, 'status', 'market');
-        // Eğer manualOverride null değilse (yani AÇIK veya KAPALI ise), otomatiğe al.
-        // Ama kullanıcı deneyimi için: AÇIK ise KAPAT, KAPALI ise AÇ mantığı daha iyi olabilir.
-        // Şimdilik basit toggle: Manual varsa temizle (Oto), yoksa Manuel Aç.
-        
-        // Geliştirilmiş Mantık:
-        // Şu anki durum AÇIK ise (Manuel veya Oto) -> Manuel KAPAT
-        // Şu anki durum KAPALI ise -> Manuel AÇ
-        
         let nextState;
-        if (isMarketOpen) {
-            nextState = false; // Kapat
-        } else {
-            nextState = true; // Aç
-        }
+        if (isMarketOpen) nextState = false; // Kapat
+        else nextState = true; // Aç
 
         // Doküman yoksa oluşturarak güncelle (setDoc merge: true)
         if (nextState === true) {
@@ -537,14 +451,14 @@ export default function App() {
   );
 
   const AssetRow = ({ asset }) => {
-    const displayedData = displayedAssets[asset.ticker] || asset;
-    const changeAmount = displayedData.change || 0;
-    const prevPrice = displayedData.price - changeAmount;
+    // Sadece veritabanından gelen veriyi göster
+    const changeAmount = asset.change || 0;
+    const prevPrice = asset.price - changeAmount;
     const percentageChange = prevPrice !== 0 ? (changeAmount / prevPrice) * 100 : 0;
     const priceChangeStyle = changeAmount >= 0 ? styles.priceUp : styles.priceDown;
     const tradeButtonsDisabled = !isMarketOpen;
 
-    return ( <div key={asset.ticker} style={styles.stockRow} onClick={() => handleStockClick(asset)}> <div style={styles.stockInfo}> <p style={styles.stockTicker}>{asset.ticker}</p> <p style={styles.stockName}>{asset.name}</p> </div> <div style={styles.stockPriceContainer}> <p style={styles.stockPrice}>₺{displayedData.price.toFixed(2)}</p> <span style={{ ...styles.stockChange, ...priceChangeStyle }}> {percentageChange.toFixed(2)}% </span> </div> <div style={styles.stockActions}> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.buyButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'buy'); }}>Al</button> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.sellButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'sell'); }}>Sat</button> </div> </div> );
+    return ( <div key={asset.ticker} style={styles.stockRow} onClick={() => handleStockClick(asset)}> <div style={styles.stockInfo}> <p style={styles.stockTicker}>{asset.ticker}</p> <p style={styles.stockName}>{asset.name}</p> </div> <div style={styles.stockPriceContainer}> <p style={styles.stockPrice}>₺{asset.price.toFixed(2)}</p> <span style={{ ...styles.stockChange, ...priceChangeStyle }}> {percentageChange.toFixed(2)}% </span> </div> <div style={styles.stockActions}> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.buyButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'buy'); }}>Al</button> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.sellButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'sell'); }}>Sat</button> </div> </div> );
   };
   
   const renderMarket = () => ( <div style={{paddingBottom: 20}}> {companies.map(company => <AssetRow key={company.ticker} asset={company} />)} </div> );
@@ -557,7 +471,7 @@ export default function App() {
     if (portfolioItems.length === 0) {
       return <div style={styles.centerMessage}><p style={styles.centerMessageText}>Portföyünüzde hiç varlık yok.</p></div>;
     }
-    return ( <div style={{paddingBottom: 20}}> {portfolioItems.map(ticker => { const asset = allAssets.find(a => a.ticker === ticker); const displayedAsset = displayedAssets[ticker] || asset; if (!asset) return null; const amount = user.portfolio[ticker]; const currentValue = (displayedAsset?.price || asset.price) * amount; return ( <div key={ticker} style={styles.portfolioRow}> <div> <p style={styles.stockTicker}>{ticker}</p> <p style={styles.stockName}>{amount.toFixed(4)} Adet</p> </div> <div style={{textAlign: 'right'}}> <p style={styles.stockPrice}>₺{currentValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.stockName}>Birim Fiyat: ₺{(displayedAsset?.price || asset.price).toFixed(2)}</p> </div> </div> ); })} </div> );
+    return ( <div style={{paddingBottom: 20}}> {portfolioItems.map(ticker => { const asset = allAssets.find(a => a.ticker === ticker); if (!asset) return null; const amount = user.portfolio[ticker]; const currentValue = asset.price * amount; return ( <div key={ticker} style={styles.portfolioRow}> <div> <p style={styles.stockTicker}>{ticker}</p> <p style={styles.stockName}>{amount.toFixed(4)} Adet</p> </div> <div style={{textAlign: 'right'}}> <p style={styles.stockPrice}>₺{currentValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.stockName}>Birim Fiyat: ₺{asset.price.toFixed(2)}</p> </div> </div> ); })} </div> );
   };
   
   const renderNews = () => ( <div style={{paddingBottom: 20}}> <div style={styles.newsHeader}> <h2 style={{margin: '15px 0'}}>Haberler</h2> <button style={styles.secondaryButton} onClick={() => setColumnsModalVisible(true)}>Köşe Yazıları</button> </div> {user.isFounder && ( <div style={styles.addNewsButton} onClick={() => setAddNewsModalVisible(true)}> + Yeni Haber Ekle </div> )} {news.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteNews(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> );
@@ -571,7 +485,7 @@ export default function App() {
       default: content = renderMarket();
     }
     const allAssets = [...companies, ...forex];
-    const portfolioValue = (user && user.portfolio && allAssets.length > 0) ? Object.keys(user.portfolio).reduce((total, ticker) => { const asset = allAssets.find(a => a.ticker === ticker); return total + (asset ? (displayedAssets[ticker]?.price || asset.price) * user.portfolio[ticker] : 0); }, 0) : 0;
+    const portfolioValue = (user && user.portfolio && allAssets.length > 0) ? Object.keys(user.portfolio).reduce((total, ticker) => { const asset = allAssets.find(a => a.ticker === ticker); return total + (asset ? asset.price * user.portfolio[ticker] : 0); }, 0) : 0;
     const totalAssets = (user?.balance || 0) + portfolioValue;
     let overrideButtonText;
     if (marketStatus.manualOverride !== null) {
