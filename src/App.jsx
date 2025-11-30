@@ -35,10 +35,9 @@ import {
     Timestamp
 } from 'firebase/firestore';
 
-ChartJS.register(
-  CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
+// --- FIREBASE CONFIG ---
 const firebaseConfig = {
   apiKey: "AIzaSyCBE4bg19z6BUm-L4LdHDwu2jg7aFsGM8s",
   authDomain: "borsasimulasyonu-7e5a7.firebaseapp.com",
@@ -123,6 +122,7 @@ const styles = {
 };
 
 const FOUNDER_EMAIL = 'kurucu@borsa.sim';
+// Initial data sadece boşsa kullanılır
 const INITIAL_COMPANIES = [
     { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
     { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
@@ -142,7 +142,6 @@ const INITIAL_FOREX = [
 ];
 const INITIAL_NEWS = [
   { title: 'TeknoDev Yeni Bir Yapay Zeka Modeli Duyurdu!', content: 'TeknoDev A.Ş., bugün düzenlediği basın toplantısıyla verimliliği %40 artıracak yeni nesil yapay zeka modelini tanıttı. Hisselerde hareketlilik bekleniyor.', date: new Date().toISOString() },
-  { title: 'Gelecek Gıda, Organik Ürün Yelpazesini Genişletiyor', content: 'Gelecek Gıda, artan talebi karşılamak için 5 yeni organik ürününü piyasaya sürdü. Şirket, pazar payını artırmayı hedefliyor.', date: new Date(Date.now() - 86400000).toISOString() },
 ];
 const INITIAL_COLUMNS = [
     { title: 'Piyasalarda Yapay Zeka Rüzgarı', content: 'Son dönemde teknoloji hisselerinde yaşanan yükseliş, yapay zeka alanındaki gelişmelerle doğrudan ilişkili. Yatırımcılar, bu alanda lider olan şirketlere yöneliyor...', author: 'Ahmet Yılmaz', date: new Date().toISOString() }
@@ -179,19 +178,14 @@ const generateConsistentHistoricalData = (ticker, currentPrice, range) => {
     }
 
     let price = currentPrice * (0.8 + random() * 0.4);
-
     for (let i = 0; i < points; i++) {
         const date = new Date(now.getTime() - ((points - 1 - i) * interval));
         labels.push(date.toLocaleDateString('tr-TR'));
-        if (i > 0) {
-            price *= (1 + (random() - 0.5) * 0.15);
-        }
+        if (i > 0) price *= (1 + (random() - 0.5) * 0.15);
         data.push(parseFloat(price.toFixed(2)));
     }
-    
     const adjustment = currentPrice / data[data.length - 1];
     data = data.map(p => parseFloat((p * adjustment).toFixed(2)));
-    
     return { labels, data };
 };
 
@@ -206,12 +200,11 @@ export default function App() {
   const [companies, setCompanies] = useState([]);
   const [forex, setForex] = useState([]);
   
-  // Bu referanslar animasyonun akıllı olmasını sağlar
-  const [displayedAssets, setDisplayedAssets] = useState({});
-  const startPricesRef = useRef({}); 
-  const targetPricesRef = useRef({});
-  const lastUpdateRef = useRef({});
-  const startTimeRef = useRef({});
+  // --- GÖRÜNTÜLEME VE ANİMASYON STATE'LERİ ---
+  const [displayedAssets, setDisplayedAssets] = useState({}); 
+  
+  // Animasyon için referanslar (React render döngüsünden bağımsız takip için)
+  const animationRefs = useRef({}); // { ticker: { startVal, endVal, startTime } }
 
   const [news, setNews] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -241,7 +234,7 @@ export default function App() {
   
   const isMarketOpen = marketStatus.manualOverride !== null ? marketStatus.manualOverride : marketStatus.isScheduledOpen;
 
-  // 1. Auth Durumu
+  // 1. Kullanıcı Oturumu
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
@@ -251,26 +244,17 @@ export default function App() {
             setUser({ uid: authUser.uid, ...docSnap.data() });
           } else {
              if (authUser.email === FOUNDER_EMAIL) {
-                 await setDoc(userDocRef, { 
-                     email: authUser.email, 
-                     balance: 1000000, 
-                     portfolio: {}, 
-                     isFounder: true 
-                 });
-             } else {
-                 signOut(auth);
-             }
+                 await setDoc(userDocRef, { email: authUser.email, balance: 1000000, portfolio: {}, isFounder: true });
+             } else { signOut(auth); }
           }
         });
         return () => unsubscribeUser();
-      } else {
-        setUser(null);
-      }
+      } else { setUser(null); }
     });
     return () => unsubAuth();
   }, []);
 
-  // 2. Veri Dinleyicileri
+  // 2. Firestore Verilerini Dinle
   useEffect(() => {
     if (!user) return;
 
@@ -331,82 +315,88 @@ export default function App() {
     };
   }, [user]);
 
-  // --- AKILLI ANİMASYON MOTORU ---
-  // Backend 15 saniyede bir güncelliyor. Biz de 15 saniyelik yumuşak geçişler yapıyoruz.
-  // "Jumping" sorununu çözen ana kısım burası.
+  // 3. GLITCH-FREE ANİMASYON SİSTEMİ (YENİLENMİŞ)
+  // Bu sistem, sunucu saati yerine yerel state değişimini baz alır.
   useEffect(() => {
     let animationFrameId;
     const allAssets = [...companies, ...forex];
 
+    // Veri yoksa veya piyasa kapalıysa direkt göster
     if (!isMarketOpen || allAssets.length === 0) {
         const finalPrices = {};
         allAssets.forEach(asset => {
-            finalPrices[asset.ticker] = { price: asset.price, change: asset.change };
+            finalPrices[asset.ticker] = { price: asset.price, change: asset.change || 0 };
+            // Reset animation state
+            animationRefs.current[asset.ticker] = null;
         });
         setDisplayedAssets(finalPrices);
         return;
     }
 
+    // Animasyon Döngüsü
     const animate = () => {
         const now = Date.now();
         const newDisplayedAssets = {};
 
         allAssets.forEach(asset => {
             const ticker = asset.ticker;
-            const lastUpdate = asset.last_price_update ? asset.last_price_update.toMillis() : 0;
+            let animState = animationRefs.current[ticker];
 
-            // Eğer yeni bir güncelleme geldiyse, interpolasyon hedeflerini yenile
-            if (!lastUpdateRef.current[ticker] || lastUpdate > lastUpdateRef.current[ticker]) {
-                // Başlangıç noktası olarak ŞU AN GÖRÜNEN fiyatı al (Sıçramayı engeller)
-                // Eğer ilk defa açılıyorsa direkt veritabanındaki fiyatı al
-                const currentDisplay = displayedAssets[ticker] ? displayedAssets[ticker].price : asset.price;
+            // Eğer bu hisse için animasyon state'i yoksa veya hedef fiyat değiştiyse yeni animasyon başlat
+            // Not: Hedef fiyat (asset.price) değiştiğinde yeni bir "Glide" başlatıyoruz.
+            if (!animState || animState.endVal !== asset.price) {
+                // Başlangıç noktası: Şu an ekranda ne yazıyorsa O (Sıçramayı önler)
+                // Eğer ekranda henüz bir şey yoksa direkt hedef fiyatı al
+                const currentDisplayPrice = displayedAssets[ticker]?.price || asset.price;
                 
-                startPricesRef.current[ticker] = currentDisplay;
-                targetPricesRef.current[ticker] = asset.price;
-                startTimeRef.current[ticker] = now;
-                lastUpdateRef.current[ticker] = lastUpdate;
+                animState = {
+                    startVal: currentDisplayPrice,
+                    endVal: asset.price,
+                    startTime: now,
+                    duration: 15000 // 15 Saniyelik Süzülme (Backend döngüsüne uygun)
+                };
+                animationRefs.current[ticker] = animState;
             }
 
-            // İnterpolasyon Hesaplama
-            const startTime = startTimeRef.current[ticker] || now;
-            const priceStart = startPricesRef.current[ticker] || asset.price;
-            const priceEnd = targetPricesRef.current[ticker] || asset.price;
-
-            // 15 saniyelik bir geçiş süresi (Backend döngüsüyle uyumlu)
-            const duration = 15000; 
-            const elapsed = now - startTime;
-            let progress = Math.min(elapsed / duration, 1);
+            // İlerleme hesapla (0.0 ile 1.0 arası)
+            const elapsed = now - animState.startTime;
+            let progress = Math.min(elapsed / animState.duration, 1);
             
-            // Yumuşatma efekti (Ease-out)
-            // progress = 1 - Math.pow(1 - progress, 3); 
+            // Linear Interpolation (Lerp)
+            let interpolatedPrice = animState.startVal + (animState.endVal - animState.startVal) * progress;
 
-            let interpolatedPrice = priceStart + (priceEnd - priceStart) * progress;
-
-            // Mikro-Hareketler (Noise): Sinüs dalgası ile "nefes alma" efekti
-            // Rastgele titreme yerine daha doğal bir dalgalanma
+            // Mikro-Hareket (Nefes alma efekti)
+            // Fiyat sabit dururken bile çok az canlı görünsün diye
             if (progress < 1) {
-                const noise = Math.sin(now / 500) * (priceEnd * 0.0005); 
+                const noise = Math.sin(now / 200) * (asset.price * 0.0002); 
                 interpolatedPrice += noise;
+            } else {
+                // Süre bittiyse tam hedefe kilitle (veya çok az titret)
+                interpolatedPrice = asset.price;
             }
-
-            const displayedChange = interpolatedPrice - (asset.price - asset.change); // Yaklaşık değişim
+            
+            // Değişimi hesapla
+            // Gerçek değişim: (Şu anki Fiyat - Günün Başlangıç Fiyatı)
+            // asset.price_start backend'den gelmeli. Gelmezse asset.price kullanılır.
+            const openingPrice = asset.price_start || asset.price; 
+            const currentChange = interpolatedPrice - openingPrice;
 
             newDisplayedAssets[ticker] = {
                 price: interpolatedPrice,
-                change: displayedChange
+                change: currentChange
             };
         });
-        
+
         setDisplayedAssets(newDisplayedAssets);
         animationFrameId = requestAnimationFrame(animate);
     };
 
     animationFrameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrameId);
+  }, [companies, forex, isMarketOpen]); // displayedAssets dependency'e eklenmemeli!
 
-  }, [companies, forex, isMarketOpen]); // displayedAssets dependency'den çıkarıldı, loop'u kırmamak için
 
-
+  // --- Handler Fonksiyonları ---
   const showModal = (message) => { setModalMessage(message); setModalVisible(true); };
   
   const handleRegister = async () => {
@@ -527,6 +517,7 @@ export default function App() {
       setDetailModalVisible(true); 
   };
 
+  // --- Render Helper ---
   const renderAuthScreens = () => ( 
     <div style={styles.authContainer}> 
         <h1 style={styles.authTitle}>Borsa Simülasyonu</h1> 
@@ -541,9 +532,10 @@ export default function App() {
 
   const AssetRow = ({ asset }) => {
     const displayedData = displayedAssets[asset.ticker] || asset;
-    const prevPrice = displayedData.price - displayedData.change;
-    const percentageChange = prevPrice !== 0 ? (displayedData.change / prevPrice) * 100 : 0;
-    const priceChangeStyle = displayedData.change >= 0 ? styles.priceUp : styles.priceDown;
+    const changeAmount = displayedData.change || 0;
+    const prevPrice = displayedData.price - changeAmount;
+    const percentageChange = prevPrice !== 0 ? (changeAmount / prevPrice) * 100 : 0;
+    const priceChangeStyle = changeAmount >= 0 ? styles.priceUp : styles.priceDown;
     const tradeButtonsDisabled = !isMarketOpen;
 
     return ( <div key={asset.ticker} style={styles.stockRow} onClick={() => handleStockClick(asset)}> <div style={styles.stockInfo}> <p style={styles.stockTicker}>{asset.ticker}</p> <p style={styles.stockName}>{asset.name}</p> </div> <div style={styles.stockPriceContainer}> <p style={styles.stockPrice}>₺{displayedData.price.toFixed(2)}</p> <span style={{ ...styles.stockChange, ...priceChangeStyle }}> {percentageChange.toFixed(2)}% </span> </div> <div style={styles.stockActions}> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.buyButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'buy'); }}>Al</button> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.sellButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'sell'); }}>Sat</button> </div> </div> );
