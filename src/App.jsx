@@ -31,7 +31,8 @@ import {
     updateDoc,
     addDoc,
     orderBy,
-    deleteDoc
+    deleteDoc,
+    Timestamp // Timestamp import edildi
 } from 'firebase/firestore';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
@@ -121,6 +122,7 @@ const styles = {
 };
 
 const FOUNDER_EMAIL = 'kurucu@borsa.sim';
+// Initial data sadece boşsa kullanılır
 const INITIAL_COMPANIES = [
     { name: 'TeknoDev A.Ş.', ticker: 'TKNDV', price: 150.75, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
     { name: 'Gelecek Gıda Ltd.', ticker: 'GLCGD', price: 75.50, change: 0, lastChangePercent: 0, trend: 'stable', trendDuration: 0, targetPrice: null, effectExpiry: null },
@@ -201,7 +203,7 @@ export default function App() {
   // --- GÖRÜNTÜLEME VE ANİMASYON STATE'LERİ ---
   const [displayedAssets, setDisplayedAssets] = useState({}); 
   
-  // Animasyon için referans (Hata buradaki eksiklikten kaynaklanıyordu, düzelttim)
+  // Animasyon için referans
   const animationRefs = useRef({}); 
 
   const [news, setNews] = useState([]);
@@ -256,10 +258,12 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
 
+    // Başlangıç verilerini kontrol et
     const checkAndCreateInitialData = async () => {
         if (user.isFounder) {
              const marketStatusDocRef = doc(db, 'status', 'market');
              const marketSnap = await getDoc(marketStatusDocRef);
+             // Dosya yoksa oluştur
              if (!marketSnap.exists()) {
                await setDoc(marketStatusDocRef, { isScheduledOpen: false, manualOverride: null, volatility: 0.04, overrideExpiry: null });
              }
@@ -313,7 +317,7 @@ export default function App() {
     };
   }, [user]);
 
-  // 3. GLITCH-FREE ANİMASYON SİSTEMİ (DÜZELTİLDİ VE OPTİMİZE EDİLDİ)
+  // 3. GLITCH-FREE ANİMASYON SİSTEMİ
   useEffect(() => {
     let animationFrameId;
     const allAssets = [...companies, ...forex];
@@ -380,7 +384,7 @@ export default function App() {
 
     animationFrameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [companies, forex, isMarketOpen]); // Dependency listesi doğru
+  }, [companies, forex, isMarketOpen]); // displayedAssets dependency'e eklenmemeli!
 
 
   const showModal = (message) => { setModalMessage(message); setModalVisible(true); };
@@ -465,20 +469,37 @@ export default function App() {
   const handleDeleteColumn = async (id) => { await deleteDoc(doc(db, 'columns', id)); };
 
   const handleMarketOverrideToggle = async () => {
-      const marketStatusRef = doc(db, 'status', 'market');
-      if (marketStatus.manualOverride !== null) {
-          await updateDoc(marketStatusRef, { manualOverride: null, overrideExpiry: null });
-          return;
-      }
-      const now = new Date();
-      let newExpiryDate;
-      if (isMarketOpen) {
-           await updateDoc(marketStatusRef, { manualOverride: false });
-      } else {
-          newExpiryDate = new Date();
-          newExpiryDate.setHours(21, 0, 0, 0); 
-          if (now.getHours() >= 21) newExpiryDate.setDate(newExpiryDate.getDate() + 1);
-          await updateDoc(marketStatusRef, { manualOverride: true, overrideExpiry: Timestamp.fromDate(newExpiryDate) });
+      try {
+        const marketStatusRef = doc(db, 'status', 'market');
+        // Eğer manualOverride null değilse (yani AÇIK veya KAPALI ise), otomatiğe al.
+        // Ama kullanıcı deneyimi için: AÇIK ise KAPAT, KAPALI ise AÇ mantığı daha iyi olabilir.
+        // Şimdilik basit toggle: Manual varsa temizle (Oto), yoksa Manuel Aç.
+        
+        // Geliştirilmiş Mantık:
+        // Şu anki durum AÇIK ise (Manuel veya Oto) -> Manuel KAPAT
+        // Şu anki durum KAPALI ise -> Manuel AÇ
+        
+        let nextState;
+        if (isMarketOpen) {
+            nextState = false; // Kapat
+        } else {
+            nextState = true; // Aç
+        }
+
+        // Doküman yoksa oluşturarak güncelle (setDoc merge: true)
+        if (nextState === true) {
+             const now = new Date();
+             const newExpiryDate = new Date();
+             newExpiryDate.setHours(21, 0, 0, 0); 
+             if (now.getHours() >= 21) newExpiryDate.setDate(newExpiryDate.getDate() + 1);
+             
+             await setDoc(marketStatusRef, { manualOverride: true, overrideExpiry: Timestamp.fromDate(newExpiryDate) }, { merge: true });
+        } else {
+             await setDoc(marketStatusRef, { manualOverride: false, overrideExpiry: null }, { merge: true });
+        }
+      } catch (err) {
+          console.error("Piyasa durumu değiştirilemedi:", err);
+          showModal("Piyasa durumu değiştirilirken hata oluştu.");
       }
   };
   
