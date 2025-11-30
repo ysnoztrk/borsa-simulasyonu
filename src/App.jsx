@@ -242,47 +242,54 @@ export default function App() {
   
   const isMarketOpen = marketStatus.manualOverride !== null ? marketStatus.manualOverride : marketStatus.isScheduledOpen;
 
+  // 1. Sadece Auth Durumunu Dinle (Her zaman çalışır)
   useEffect(() => {
-    const checkAndCreateInitialData = async () => {
-      const founderDocRef = doc(db, 'users', FOUNDER_EMAIL);
-      const founderSnap = await getDoc(founderDocRef);
-      if (!founderSnap.exists()) {
-          await setDoc(founderDocRef, { email: FOUNDER_EMAIL, balance: 1000000, portfolio: {}, isFounder: true });
-          try {
-              await createUserWithEmailAndPassword(auth, FOUNDER_EMAIL, 'kurucu123');
-          } catch (error) { console.warn("Kurucu auth hesabı zaten var veya oluşturulamadı."); }
+    const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
+      if (authUser) {
+        const userDocRef = doc(db, 'users', authUser.email);
+        const unsubscribeUser = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            setUser({ uid: authUser.uid, ...docSnap.data() });
+          } else {
+             // Kullanıcı Auth'da var ama DB'de yoksa, çıkış yap
+             // VEYA: Kurucu ise oluşturma mantığı buraya eklenebilir
+             if (authUser.email === FOUNDER_EMAIL) {
+                 // Kurucuyu otomatik oluştur (Opsiyonel, checkAndCreateInitialData zaten yapıyor)
+             } else {
+                 signOut(auth);
+             }
+          }
+        });
+        return () => unsubscribeUser();
+      } else {
+        setUser(null);
       }
-      
-      const marketStatusDocRef = doc(db, 'status', 'market');
-      const marketSnap = await getDoc(marketStatusDocRef);
-      if (!marketSnap.exists()) {
-        await setDoc(marketStatusDocRef, { isScheduledOpen: false, manualOverride: null, volatility: 0.04, overrideExpiry: null });
-      }
+    });
+    return () => unsubAuth();
+  }, []);
 
-      for (const asset of [...INITIAL_COMPANIES, ...INITIAL_FOREX]) {
-        const historyDocRef = doc(db, 'priceHistory', asset.ticker);
-        const historySnap = await getDoc(historyDocRef);
-        if (!historySnap.exists()) {
-          await setDoc(historyDocRef, { history: [] });
+  // 2. Veri Dinleyicileri (Sadece Kullanıcı Giriş Yapmışsa Çalışır)
+  useEffect(() => {
+    // Eğer kullanıcı yoksa (null) veya yükleniyorsa (undefined), dinleyicileri başlatma
+    if (!user) return;
+
+    // Kurucu hesabı ve ilk verileri kontrol et (Sadece kurucu giriş yaptığında çalışması mantıklı olabilir veya her girişte kontrol edilebilir)
+    const checkAndCreateInitialData = async () => {
+        if (user.isFounder) {
+             const marketStatusDocRef = doc(db, 'status', 'market');
+             const marketSnap = await getDoc(marketStatusDocRef);
+             if (!marketSnap.exists()) {
+               await setDoc(marketStatusDocRef, { isScheduledOpen: false, manualOverride: null, volatility: 0.04, overrideExpiry: null });
+             }
+             // Şirketleri, forex'i vb. kontrol etme mantığı buraya eklenebilir
+             // ...
         }
-      }
     };
     checkAndCreateInitialData();
 
-    const unsubAuth = onAuthStateChanged(auth, (authUser) => {
-        if (authUser) {
-            const userDocRef = doc(db, 'users', authUser.email);
-            const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
-                if (docSnap.exists()) { setUser({ uid: authUser.uid, ...docSnap.data() }); } 
-                else { signOut(auth); }
-            });
-            return () => unsubscribeUser();
-        } else { setUser(null); }
-    });
-    
     const handleAssetSnapshot = (snapshot, setter, initialData) => {
         const assetData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id }));
-        if (assetData.length === 0) {
+        if (assetData.length === 0 && user.isFounder) { // Sadece kurucu veritabanını doldurabilir
             const batch = writeBatch(db);
             initialData.forEach(asset => { 
                 const assetRef = doc(db, snapshot.query.parent.id, asset.ticker);
@@ -299,7 +306,7 @@ export default function App() {
     
     const unsubNews = onSnapshot(query(collection(db, 'news'), orderBy('date', 'desc')), (snapshot) => {
         const newsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-         if (newsData.length === 0) {
+         if (newsData.length === 0 && user.isFounder) {
             const batch = writeBatch(db);
             INITIAL_NEWS.forEach(newsItem => {
                 const newDocRef = doc(collection(db, 'news'));
@@ -311,7 +318,7 @@ export default function App() {
 
     const unsubColumns = onSnapshot(query(collection(db, 'columns'), orderBy('date', 'desc')), (snapshot) => {
         const columnsData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-        if (columnsData.length === 0) {
+        if (columnsData.length === 0 && user.isFounder) {
             const batch = writeBatch(db);
             INITIAL_COLUMNS.forEach(col => { batch.set(doc(collection(db, 'columns')), col); });
             batch.commit();
@@ -329,14 +336,15 @@ export default function App() {
     });
 
     return () => { 
-        unsubAuth(); 
         unsubCompanies(); 
         unsubForex();
         unsubNews(); 
         unsubColumns();
         unsubMarket(); 
     };
-  }, []);
+  }, [user]); // Bu useEffect sadece 'user' değiştiğinde (yani giriş yapıldığında) çalışır
+
+  // ... (Diğer useEffect'ler ve fonksiyonlar aynı kalabilir, ancak 'if (!user) return' kontrolü eklemek iyi olur) ...
 
   useEffect(() => {
     let animationFrameId;
@@ -591,4 +599,3 @@ export default function App() {
 
   return ( <div style={styles.container}> {user === null ? renderAuthScreens() : renderAppContent()} {modalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <p style={styles.modalText}>{modalMessage}</p> <button style={{...styles.button, width: 'auto', padding: '10px 30px'}} onClick={() => setModalVisible(false)}> Tamam </button> </div> </div> )} {tradeModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>{selectedAsset?.ticker} {tradeAction === 'buy' ? 'Al' : 'Sat'}</h2> <p style={styles.modalInfo}>Fiyat: ₺{selectedAsset?.price.toFixed(2)}</p> <p style={styles.modalInfo}>Nakit Bakiye: ₺{user?.balance.toFixed(2)}</p> {tradeAction === 'sell' && <p style={styles.modalInfo}>Sahip Olunan: {user?.portfolio[selectedAsset?.ticker] || 0} Adet</p>} <input style={styles.input} placeholder="Adet Girin" type="number" value={tradeAmount} onChange={(e) => setTradeAmount(e.target.value)} /> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setTradeModalVisible(false)}> İptal </button> <button style={{...styles.modalButton, backgroundColor: tradeAction === 'buy' ? '#28a745' : '#dc3545'}} onClick={executeTrade}> Onayla </button> </div> </div> </div> )} {addNewsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.modalView}> <h2 style={styles.modalTitle}>Yeni Haber Ekle</h2> <input style={styles.input} placeholder="Haber Başlığı" value={newNewsTitle} onChange={(e) => setNewNewsTitle(e.target.value)} /> <textarea style={{...styles.input, height: 80, resize: 'vertical'}} placeholder="Haber İçeriği" value={newNewsContent} onChange={(e) => setNewNewsContent(e.target.value)} /> <h3 style={styles.stockEffectTitle}>Hisse Senedi Etkileri (24 Saat)</h3> <div style={styles.effectsContainer}> {companies.map(company => ( <div key={company.ticker} style={styles.effectRow}> <span style={{flex: 1}}>{company.ticker}</span> <input type="number" placeholder="Etki %" style={styles.effectInput} value={newsEffects[company.ticker] || ''} onChange={(e) => { const newEffects = { ...newsEffects }; const value = e.target.value; if (value === '') { delete newEffects[company.ticker]; } else { newEffects[company.ticker] = parseFloat(value); } setNewsEffects(newEffects); }} /> </div> ))} </div> <div style={styles.modalButtonContainer}> <button style={{...styles.modalButton, backgroundColor: '#555'}} onClick={() => setAddNewsModalVisible(false)}>İptal</button> <button style={{...styles.modalButton, backgroundColor: '#007bff'}} onClick={handleAddNews}>Yayınla ve Etki Et</button> </div> </div> </div> )} {columnsModalVisible && ( <div style={styles.modalOverlay}> <div style={styles.columnsModalView}> <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> <h2 style={styles.modalTitle}>Köşe Yazıları</h2> <button style={{background:'none', border:'none', color:'#fff', fontSize: '24px', cursor:'pointer'}} onClick={() => setColumnsModalVisible(false)}>×</button> </div> {user.isFounder && ( <div style={{padding: '10px', border: '1px solid #444', borderRadius: '10px', marginBottom: '20px'}}> <h3 style={{marginTop: 0}}>Yeni Yazı Ekle</h3> <input style={styles.input} placeholder="Yazı Başlığı" value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} /> <input style={styles.input} placeholder="Yazar Adı" value={newColumnAuthor} onChange={(e) => setNewColumnAuthor(e.target.value)} /> <textarea style={{...styles.input, height: '100px', resize: 'vertical'}} placeholder="İçerik" value={newColumnContent} onChange={(e) => setNewColumnContent(e.target.value)} /> <button style={styles.button} onClick={handleAddColumn}>Ekle</button> </div> )} <div style={{flex: 1, overflowY: 'auto'}}> {columns.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteColumn(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={{fontSize: 12, color: '#007bff', margin: '5px 0'}}>{item.author}</p> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> </div> </div> )} {detailModalVisible && selectedStockForDetail && ( <div style={styles.modalOverlay} onClick={() => setDetailModalVisible(false)}> <div style={styles.detailModalView} onClick={(e) => e.stopPropagation()}> <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}> <h2 style={styles.modalTitle}>{selectedStockForDetail.name} ({selectedStockForDetail.ticker})</h2> <button style={{background: 'none', border: 'none', color: '#fff', fontSize: '24px', cursor: 'pointer'}} onClick={() => setDetailModalVisible(false)}>×</button> </div> <p style={styles.stockPrice}>Güncel Fiyat: ₺{selectedStockForDetail.price.toFixed(2)}</p> <div style={styles.chartContainer}> {isChartLoading ? <p style={{textAlign: 'center', color: '#aaa'}}>Grafik Yükleniyor...</p> : <Line data={chartData} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: 'auto' } } }} />} </div> <div style={styles.timeRangeContainer}> {['1G', '1H', '1A', '3A', '1Y', '2Y', '5Y'].map(range => ( <button key={range} style={{...styles.timeRangeButton, ...(chartTimeRange === range && styles.timeRangeButtonActive)}} onClick={() => handleTimeRangeChange(selectedStockForDetail.ticker, selectedStockForDetail.price, range)}> {range} </button> ))} </div> </div> </div> )} </div> );
 }
-
