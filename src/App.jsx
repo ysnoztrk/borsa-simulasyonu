@@ -11,7 +11,6 @@ import {
   Legend,
   Filler,
 } from 'chart.js';
-// --- FIREBASE KÜTÜPHANELERİNİ İÇE AKTARMA ---
 import { initializeApp } from 'firebase/app';
 import { 
     getAuth, 
@@ -32,11 +31,11 @@ import {
     updateDoc,
     addDoc,
     orderBy,
-    arrayUnion,
     deleteDoc,
     Timestamp
 } from 'firebase/firestore';
 
+// ChartJS Kaydı
 ChartJS.register(
   CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler
 );
@@ -55,77 +54,75 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- YARDIMCI KOMPONENTLER & STİLLER ---
 const TrashIcon = () => ( <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"> <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/> <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/> </svg> );
 
 const styles = {
-  container: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', flex: 1, backgroundColor: '#121212', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', },
-  authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, display: 'flex', flexDirection: 'column', },
+  container: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', flex: 1, backgroundColor: '#121212', color: '#fff', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' },
+  authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, display: 'flex', flexDirection: 'column', height: '100vh' },
   authTitle: { fontSize: 32, color: '#FFF', fontWeight: 'bold', marginBottom: 40, },
   input: { width: '100%', maxWidth: '400px', backgroundColor: '#1e1e1e', padding: 15, borderRadius: 10, color: '#FFF', marginBottom: 15, border: '1px solid #333', fontSize: '16px', boxSizing: 'border-box', },
   button: { width: '100%', maxWidth: '400px', backgroundColor: '#007bff', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10, border: 'none', color: '#FFF', fontSize: 16, fontWeight: 'bold', cursor: 'pointer', },
   switchText: { color: '#007bff', marginTop: 20, cursor: 'pointer', },
   header: { padding: '15px 20px', backgroundColor: '#1e1e1e', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #333' },
   headerText: { color: '#aaa', fontSize: 14, margin: 0, },
-  balanceText: { color: '#FFF', fontSize: 28, fontWeight: 'bold', margin: '4px 0', },
+  balanceText: { color: '#FFF', fontSize: 24, fontWeight: 'bold', margin: '4px 0', },
   subBalanceText:{ color: '#aaa', fontSize: 14, margin: 0, },
-  logoutText: { color: '#dc3545', fontSize: 16, cursor: 'pointer' },
+  logoutText: { color: '#dc3545', fontSize: 14, cursor: 'pointer', marginLeft: 15 },
   marketStatusContainer: { display: 'flex', alignItems: 'center', gap: '8px' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '15px', },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '10px', },
   marketStatusIndicator: { width: '10px', height: '10px', borderRadius: '5px', },
   marketOpen: { backgroundColor: '#28a745', },
   marketClosed: { backgroundColor: '#dc3545', },
-  marketStatusText: { fontSize: '14px', fontWeight: 'bold', },
+  marketStatusText: { fontSize: '12px', fontWeight: 'bold', },
   overrideButton: { backgroundColor: '#444', color: '#fff', border: '1px solid #666', borderRadius: '5px', padding: '5px 10px', fontSize: '12px', cursor: 'pointer', },
-  contentArea: { flex: 1, overflowY: 'auto', },
-  navBar: { display: 'flex', flexDirection: 'row', height: 60, backgroundColor: '#1e1e1e', borderTop: '1px solid #333' },
+  contentArea: { flex: 1, overflowY: 'auto', paddingBottom: '60px' },
+  navBar: { display: 'flex', flexDirection: 'row', height: 60, backgroundColor: '#1e1e1e', borderTop: '1px solid #333', position: 'fixed', bottom: 0, width: '100%' },
   navButton: { flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', background: 'none', border: 'none' },
-  navText: { color: '#888', fontSize: 16, },
+  navText: { color: '#888', fontSize: 14, },
   navTextActive: { color: '#007bff', fontWeight: 'bold', },
   stockRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px', borderBottom: '1px solid #1e1e1e', cursor: 'pointer', },
   stockInfo: { flex: 2, },
-  stockTicker: { fontSize: 18, fontWeight: 'bold', color: '#FFF', margin: 0, },
-  stockName: { fontSize: 14, color: '#888', margin: 0, },
+  stockTicker: { fontSize: 16, fontWeight: 'bold', color: '#FFF', margin: 0, },
+  stockName: { fontSize: 12, color: '#888', margin: 0, },
   stockPriceContainer: { flex: 1.5, textAlign: 'right', },
-  stockPrice: { fontSize: 18, color: '#FFF', margin: 0, },
-  stockChange: { fontSize: 14, },
+  stockPrice: { fontSize: 16, color: '#FFF', margin: 0, },
+  stockChange: { fontSize: 12, },
   priceUp: { color: '#28a745', },
   priceDown: { color: '#dc3545', },
   stockActions: { flex: 1.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', },
-  tradeButton: { padding: '8px 15px', borderRadius: 5, marginLeft: 10, border: 'none', color: '#FFF', fontWeight: 'bold', cursor: 'pointer' },
+  tradeButton: { padding: '8px 12px', borderRadius: 5, marginLeft: 5, border: 'none', color: '#FFF', fontWeight: 'bold', cursor: 'pointer', fontSize: 12 },
   tradeButtonDisabled: { backgroundColor: '#555', cursor: 'not-allowed', },
   buyButton: { backgroundColor: '#28a745' },
   sellButton: { backgroundColor: '#dc3545' },
-  adminPriceButton: { background: 'none', border: '1px solid #555', color: '#fff', width: '28px', height: '28px', borderRadius: '14px', cursor: 'pointer', marginLeft: '8px', fontSize: '18px', lineHeight: '24px' },
-  adminControlPanel: { backgroundColor: '#1e1e1e', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', },
-  adminControlLabel: { fontSize: '14px', color: '#aaa', },
   centerMessage: { flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '50px' },
   centerMessageText: { color: '#888', fontSize: 16, },
   portfolioRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e1e1e', padding: 20, margin: '10px 15px', borderRadius: 10, },
   newsCard: { position: 'relative', backgroundColor: '#1e1e1e', padding: 15, margin: '10px 15px', borderRadius: 10, },
-  newsTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFF', marginBottom: 5, margin: 0, },
-  newsContent: { fontSize: 14, color: '#ccc', marginBottom: 10, margin: '5px 0 10px 0', },
-  newsDate: { fontSize: 12, color: '#888', textAlign: 'right', },
+  newsTitle: { fontSize: 16, fontWeight: 'bold', color: '#FFF', marginBottom: 5, margin: 0, },
+  newsContent: { fontSize: 13, color: '#ccc', marginBottom: 10, margin: '5px 0 10px 0', },
+  newsDate: { fontSize: 11, color: '#888', textAlign: 'right', },
   deleteButton: { position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', color: '#888', cursor: 'pointer', },
   newsHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 15px', },
-  secondaryButton: { backgroundColor: '#333', padding: '8px 15px', borderRadius: 8, color: '#FFF', fontSize: 14, cursor: 'pointer', border: '1px solid #555' },
-  addNewsButton: { backgroundColor: '#007bff', padding: 12, margin: 15, borderRadius: 8, textAlign: 'center', color: '#FFF', fontSize: 16, fontWeight: 'bold', cursor: 'pointer' },
+  secondaryButton: { backgroundColor: '#333', padding: '8px 15px', borderRadius: 8, color: '#FFF', fontSize: 12, cursor: 'pointer', border: '1px solid #555' },
+  addNewsButton: { backgroundColor: '#007bff', padding: 10, margin: 15, borderRadius: 8, textAlign: 'center', color: '#FFF', fontSize: 14, fontWeight: 'bold', cursor: 'pointer' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.7)', zIndex: 1000, },
-  modalView: { width: '90%', maxWidth: '500px', backgroundColor: '#1e1e1e', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.25)', },
+  modalView: { width: '90%', maxWidth: '400px', backgroundColor: '#1e1e1e', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.25)', },
   columnsModalView: { width: '90%', maxWidth: '700px', height: '80vh', backgroundColor: '#2a2a2a', borderRadius: 20, padding: 25, display: 'flex', flexDirection: 'column', },
   detailModalView: { width: '90%', maxWidth: '800px', backgroundColor: '#2a2a2a', borderRadius: 20, padding: '20px', boxShadow: '0 4px 8px rgba(0,0,0,0.3)', },
-  modalText: { marginBottom: 15, textAlign: 'center', color: '#FFF', fontSize: 18, },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#FFF', marginBottom: 15, textAlign: 'center', },
-  modalInfo: { fontSize: 16, color: '#aaa', marginBottom: 5, },
+  modalText: { marginBottom: 15, textAlign: 'center', color: '#FFF', fontSize: 16, },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFF', marginBottom: 15, textAlign: 'center', },
+  modalInfo: { fontSize: 14, color: '#aaa', marginBottom: 5, },
   modalButtonContainer: { display: 'flex', flexDirection: 'row', marginTop: 20, width: '100%', },
   modalButton: { flex: 1, borderRadius: 10, padding: 12, margin: '0 5px', border: 'none', color: '#fff', fontWeight: 'bold', cursor: 'pointer' },
-  chartContainer: { width: '100%', height: '300px', marginTop: '20px', },
-  timeRangeContainer: { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap', },
-  timeRangeButton: { background: '#333', border: 'none', color: '#fff', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', },
+  chartContainer: { width: '100%', height: '250px', marginTop: '20px', },
+  timeRangeContainer: { display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '20px', flexWrap: 'wrap', },
+  timeRangeButton: { background: '#333', border: 'none', color: '#fff', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: 12 },
   timeRangeButtonActive: { background: '#007bff', },
-  stockEffectTitle: { fontSize: 18, fontWeight: 'bold', color: '#ccc', marginTop: 20, marginBottom: 10, borderTop: '1px solid #444', paddingTop: 15, textAlign: 'center', },
-  effectsContainer: { maxHeight: '200px', overflowY: 'auto', width: '100%', paddingRight: '10px' },
+  stockEffectTitle: { fontSize: 16, fontWeight: 'bold', color: '#ccc', marginTop: 20, marginBottom: 10, borderTop: '1px solid #444', paddingTop: 15, textAlign: 'center', },
+  effectsContainer: { maxHeight: '150px', overflowY: 'auto', width: '100%', paddingRight: '10px' },
   effectRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', width: '100%', },
-  effectInput: { width: '80px', backgroundColor: '#333', border: '1px solid #555', color: '#fff', padding: '8px', borderRadius: '5px', textAlign: 'right', }
+  effectInput: { width: '60px', backgroundColor: '#333', border: '1px solid #555', color: '#fff', padding: '5px', borderRadius: '5px', textAlign: 'right', }
 };
 
 const FOUNDER_EMAIL = 'kurucu@borsa.sim';
@@ -242,7 +239,10 @@ export default function App() {
   
   const isMarketOpen = marketStatus.manualOverride !== null ? marketStatus.manualOverride : marketStatus.isScheduledOpen;
 
-  // 1. Sadece Auth Durumunu Dinle (Her zaman çalışır)
+  // --- SİMÜLASYON MOTORU KALDIRILDI ---
+  // Frontend artık sadece veriyi gösterir, değiştirmez.
+
+  // 1. Auth Durumu
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (authUser) => {
       if (authUser) {
@@ -251,10 +251,13 @@ export default function App() {
           if (docSnap.exists()) {
             setUser({ uid: authUser.uid, ...docSnap.data() });
           } else {
-             // Kullanıcı Auth'da var ama DB'de yoksa, çıkış yap
-             // VEYA: Kurucu ise oluşturma mantığı buraya eklenebilir
              if (authUser.email === FOUNDER_EMAIL) {
-                 // Kurucuyu otomatik oluştur (Opsiyonel, checkAndCreateInitialData zaten yapıyor)
+                 await setDoc(userDocRef, { 
+                     email: authUser.email, 
+                     balance: 1000000, 
+                     portfolio: {}, 
+                     isFounder: true 
+                 });
              } else {
                  signOut(auth);
              }
@@ -268,12 +271,10 @@ export default function App() {
     return () => unsubAuth();
   }, []);
 
-  // 2. Veri Dinleyicileri (Sadece Kullanıcı Giriş Yapmışsa Çalışır)
+  // 2. Veri Dinleyicileri
   useEffect(() => {
-    // Eğer kullanıcı yoksa (null) veya yükleniyorsa (undefined), dinleyicileri başlatma
     if (!user) return;
 
-    // Kurucu hesabı ve ilk verileri kontrol et (Sadece kurucu giriş yaptığında çalışması mantıklı olabilir veya her girişte kontrol edilebilir)
     const checkAndCreateInitialData = async () => {
         if (user.isFounder) {
              const marketStatusDocRef = doc(db, 'status', 'market');
@@ -281,15 +282,13 @@ export default function App() {
              if (!marketSnap.exists()) {
                await setDoc(marketStatusDocRef, { isScheduledOpen: false, manualOverride: null, volatility: 0.04, overrideExpiry: null });
              }
-             // Şirketleri, forex'i vb. kontrol etme mantığı buraya eklenebilir
-             // ...
         }
     };
     checkAndCreateInitialData();
 
     const handleAssetSnapshot = (snapshot, setter, initialData) => {
         const assetData = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id }));
-        if (assetData.length === 0 && user.isFounder) { // Sadece kurucu veritabanını doldurabilir
+        if (assetData.length === 0 && user.isFounder) { 
             const batch = writeBatch(db);
             initialData.forEach(asset => { 
                 const assetRef = doc(db, snapshot.query.parent.id, asset.ticker);
@@ -342,10 +341,10 @@ export default function App() {
         unsubColumns();
         unsubMarket(); 
     };
-  }, [user]); // Bu useEffect sadece 'user' değiştiğinde (yani giriş yapıldığında) çalışır
+  }, [user]);
 
-  // ... (Diğer useEffect'ler ve fonksiyonlar aynı kalabilir, ancak 'if (!user) return' kontrolü eklemek iyi olur) ...
-
+  // Animasyon Loop'u (Frontend Interpolation)
+  // Bu kısım kalabilir, çünkü bu veriyi değiştirmez, sadece gelen veriyi yumuşak gösterir.
   useEffect(() => {
     let animationFrameId;
     const allAssets = [...companies, ...forex];
@@ -376,15 +375,17 @@ export default function App() {
             const priceStart = asset.price_start || asset.price;
             const priceEnd = asset.price;
 
-            const progress = Math.min((now - startTime) / 60000, 1);
+            // 60 saniyelik bir interpolasyon (Backend 1 dakikada bir güncellediği için)
+            const progress = Math.min((now - startTime) / 60000, 1); 
             
             const interpolatedPrice = priceStart + (priceEnd - priceStart) * progress;
 
-            const seed = Math.floor(startTime / 5000);
-            const randomNoise = (mulberry32(seed + asset.ticker.charCodeAt(0))() - 0.5) * (priceEnd * 0.0005);
+            // Çok hafif bir noise
+            const seed = Math.floor(startTime / 500);
+            const randomNoise = (mulberry32(seed + asset.ticker.charCodeAt(0))() - 0.5) * (priceEnd * 0.0001);
 
             const displayedPrice = interpolatedPrice + randomNoise;
-            const displayedChange = displayedPrice - priceStart;
+            const displayedChange = displayedPrice - priceStart; 
 
             newDisplayedAssets[asset.ticker] = {
                 price: displayedPrice,
@@ -408,7 +409,7 @@ export default function App() {
   const handleRegister = async () => {
       if (!email || !password || !confirmPassword) { showModal("Lütfen tüm alanları doldurun."); return; }
       if (password !== confirmPassword) { showModal("Şifreler eşleşmiyor."); return; }
-      if (email === FOUNDER_EMAIL) { showModal('Bu e-posta adresi kurucuya aittir.'); return; }
+      if (email === FOUNDER_EMAIL) { showModal('Bu e-posta adresi kurucuya aittir. Giriş yapmayı deneyin.'); return; }
       try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           await setDoc(doc(db, 'users', userCredential.user.email), { email: userCredential.user.email, balance: 100000, portfolio: {}, isFounder: false });
@@ -466,7 +467,7 @@ export default function App() {
           if (effect && !isNaN(effect)) {
               const target = company.price * (1 + effect / 100);
               const companyRef = doc(db, 'marketData', company.ticker);
-              batch.update(companyRef, { targetPrice: Math.max(1, target), effectExpiry: expiryTime });
+              batch.update(companyRef, { targetPrice: Math.max(1, target), effectExpiry: Timestamp.fromMillis(expiryTime) });
           }
       });
       await batch.commit();
@@ -493,13 +494,10 @@ export default function App() {
       const now = new Date();
       let newExpiryDate;
       if (isMarketOpen) {
-          newExpiryDate = new Date();
-          newExpiryDate.setHours(14, 0, 0, 0);
-          if (now.getHours() >= 14) newExpiryDate.setDate(newExpiryDate.getDate() + 1);
-          await updateDoc(marketStatusRef, { manualOverride: false, overrideExpiry: Timestamp.fromDate(newExpiryDate) });
+           await updateDoc(marketStatusRef, { manualOverride: false });
       } else {
           newExpiryDate = new Date();
-          newExpiryDate.setHours(21, 0, 0, 0);
+          newExpiryDate.setHours(21, 0, 0, 0); 
           if (now.getHours() >= 21) newExpiryDate.setDate(newExpiryDate.getDate() + 1);
           await updateDoc(marketStatusRef, { manualOverride: true, overrideExpiry: Timestamp.fromDate(newExpiryDate) });
       }
@@ -510,43 +508,35 @@ export default function App() {
       setChartTimeRange(range); 
       let history = { labels: [], data: [] };
 
-      if (range === '1G' || range === '1H') {
-        const historyDocRef = doc(db, 'priceHistory', ticker);
-        const historySnap = await getDoc(historyDocRef);
-        if (historySnap.exists()) {
-          const allHistory = historySnap.data().history;
-          const now = Date.now();
-          const timeLimit = range === '1G' ? (now - 24 * 60 * 60 * 1000) : (now - 7 * 24 * 60 * 60 * 1000);
-          const filteredHistory = allHistory.filter(p => p.timestamp.toMillis() >= timeLimit);
-          if (filteredHistory.length > 0) {
-              history.labels = filteredHistory.map(p => new Date(p.timestamp.toMillis()).toLocaleTimeString('tr-TR'));
-              history.data = filteredHistory.map(p => p.price);
-          }
-        }
-        if (history.data.length === 0) {
-            history.labels = ['Yeterli Veri Yok'];
-            history.data = [currentPrice];
-        }
-      } else {
-        history = generateConsistentHistoricalData(ticker, currentPrice, range);
-      }
+      history = generateConsistentHistoricalData(ticker, currentPrice, range);
       
       setChartData({ 
           labels: history.labels, 
-          datasets: [{ label: 'Fiyat (₺)', data: history.data, borderColor: 'rgb(75, 192, 192)', backgroundColor: 'rgba(75, 192, 192, 0.2)', fill: true, tension: 0.1 }] 
+          datasets: [{ label: 'Fiyat (₺)', data: history.data, borderColor: 'rgb(0, 123, 255)', backgroundColor: 'rgba(0, 123, 255, 0.1)', fill: true, tension: 0.1, pointRadius: 0 }] 
       }); 
       setIsChartLoading(false);
   };
 
   const handleStockClick = (asset) => { 
       const officialAsset = [...companies, ...forex].find(a => a.ticker === asset.ticker);
+      if(!officialAsset) return;
       setSelectedStockForDetail(officialAsset); 
       setChartTimeRange('1A');
       handleTimeRangeChange(officialAsset.ticker, officialAsset.price, '1A');
       setDetailModalVisible(true); 
   };
 
-  const renderAuthScreens = () => ( <div style={styles.authContainer}> <h1 style={styles.authTitle}>Borsa Simülasyonu</h1> <input style={styles.input} placeholder="E-posta Adresi" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /> <input style={styles.input} placeholder="Şifre" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /> {screen === 'register' && ( <input style={styles.input} placeholder="Şifre Tekrar" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /> )} <button style={styles.button} onClick={screen === 'login' ? handleLogin : handleRegister}> {screen === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} </button> <p style={styles.switchText} onClick={() => setScreen(screen === 'login' ? 'register' : 'login')}> {screen === 'login' ? 'Hesabın yok mu? Kayıt Ol' : 'Zaten hesabın var mı? Giriş Yap'} </p> </div> );
+  const renderAuthScreens = () => ( 
+    <div style={styles.authContainer}> 
+        <h1 style={styles.authTitle}>Borsa Simülasyonu</h1> 
+        <input style={styles.input} placeholder="E-posta Adresi" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /> 
+        <input style={styles.input} placeholder="Şifre" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /> 
+        {screen === 'register' && ( <input style={styles.input} placeholder="Şifre Tekrar" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} /> )} 
+        <button style={styles.button} onClick={screen === 'login' ? handleLogin : handleRegister}> {screen === 'login' ? 'Giriş Yap' : 'Kayıt Ol'} </button> 
+        <p style={styles.switchText} onClick={() => setScreen(screen === 'login' ? 'register' : 'login')}> {screen === 'login' ? 'Hesabın yok mu? Kayıt Ol' : 'Zaten hesabın var mı? Giriş Yap'} </p> 
+        <p style={{marginTop: 30, color: '#666', fontSize: 12}}>Kurucu Girişi: kurucu@borsa.sim (Şifrenizi siz belirleyin)</p>
+    </div> 
+  );
 
   const AssetRow = ({ asset }) => {
     const displayedData = displayedAssets[asset.ticker] || asset;
@@ -558,8 +548,8 @@ export default function App() {
     return ( <div key={asset.ticker} style={styles.stockRow} onClick={() => handleStockClick(asset)}> <div style={styles.stockInfo}> <p style={styles.stockTicker}>{asset.ticker}</p> <p style={styles.stockName}>{asset.name}</p> </div> <div style={styles.stockPriceContainer}> <p style={styles.stockPrice}>₺{displayedData.price.toFixed(2)}</p> <span style={{ ...styles.stockChange, ...priceChangeStyle }}> {percentageChange.toFixed(2)}% </span> </div> <div style={styles.stockActions}> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.buyButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'buy'); }}>Al</button> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.sellButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'sell'); }}>Sat</button> </div> </div> );
   };
   
-  const renderMarket = () => ( <div> {companies.map(company => <AssetRow key={company.ticker} asset={company} />)} </div> );
-  const renderForex = () => ( <div> {forex.map(fx => <AssetRow key={fx.ticker} asset={fx} />)} </div> );
+  const renderMarket = () => ( <div style={{paddingBottom: 20}}> {companies.map(company => <AssetRow key={company.ticker} asset={company} />)} </div> );
+  const renderForex = () => ( <div style={{paddingBottom: 20}}> {forex.map(fx => <AssetRow key={fx.ticker} asset={fx} />)} </div> );
   
   const renderPortfolio = () => {
     if(!user || !user.portfolio) return null;
@@ -568,10 +558,10 @@ export default function App() {
     if (portfolioItems.length === 0) {
       return <div style={styles.centerMessage}><p style={styles.centerMessageText}>Portföyünüzde hiç varlık yok.</p></div>;
     }
-    return ( <div> {portfolioItems.map(ticker => { const asset = allAssets.find(a => a.ticker === ticker); const displayedAsset = displayedAssets[ticker] || asset; if (!asset) return null; const amount = user.portfolio[ticker]; const currentValue = (displayedAsset?.price || asset.price) * amount; return ( <div key={ticker} style={styles.portfolioRow}> <div> <p style={styles.stockTicker}>{ticker}</p> <p style={styles.stockName}>{amount.toFixed(4)} Adet</p> </div> <div style={{textAlign: 'right'}}> <p style={styles.stockPrice}>₺{currentValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.stockName}>Birim Fiyat: ₺{(displayedAsset?.price || asset.price).toFixed(2)}</p> </div> </div> ); })} </div> );
+    return ( <div style={{paddingBottom: 20}}> {portfolioItems.map(ticker => { const asset = allAssets.find(a => a.ticker === ticker); const displayedAsset = displayedAssets[ticker] || asset; if (!asset) return null; const amount = user.portfolio[ticker]; const currentValue = (displayedAsset?.price || asset.price) * amount; return ( <div key={ticker} style={styles.portfolioRow}> <div> <p style={styles.stockTicker}>{ticker}</p> <p style={styles.stockName}>{amount.toFixed(4)} Adet</p> </div> <div style={{textAlign: 'right'}}> <p style={styles.stockPrice}>₺{currentValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.stockName}>Birim Fiyat: ₺{(displayedAsset?.price || asset.price).toFixed(2)}</p> </div> </div> ); })} </div> );
   };
   
-  const renderNews = () => ( <div> <div style={styles.newsHeader}> <h2 style={{margin: '15px 0'}}>Haberler</h2> <button style={styles.secondaryButton} onClick={() => setColumnsModalVisible(true)}>Köşe Yazıları</button> </div> {user.isFounder && ( <div style={styles.addNewsButton} onClick={() => setAddNewsModalVisible(true)}> + Yeni Haber Ekle </div> )} {news.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteNews(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> );
+  const renderNews = () => ( <div style={{paddingBottom: 20}}> <div style={styles.newsHeader}> <h2 style={{margin: '15px 0'}}>Haberler</h2> <button style={styles.secondaryButton} onClick={() => setColumnsModalVisible(true)}>Köşe Yazıları</button> </div> {user.isFounder && ( <div style={styles.addNewsButton} onClick={() => setAddNewsModalVisible(true)}> + Yeni Haber Ekle </div> )} {news.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteNews(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> </div> ))} </div> );
   
   const renderAppContent = () => {
     let content;
@@ -586,11 +576,11 @@ export default function App() {
     const totalAssets = (user?.balance || 0) + portfolioValue;
     let overrideButtonText;
     if (marketStatus.manualOverride !== null) {
-      overrideButtonText = "Otomatik Ayara Dön";
+      overrideButtonText = marketStatus.manualOverride ? "KAPAT" : "AÇ";
     } else {
-      overrideButtonText = isMarketOpen ? "Piyasayı Kapat" : "Piyasayı Aç";
+      overrideButtonText = isMarketOpen ? "KAPAT" : "AÇ";
     }
-    return ( <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}> <header style={styles.header}> <div> <p style={styles.headerText}>Toplam Varlık {user.isFounder && '(Kurucu)'}</p> <p style={styles.balanceText}>₺{totalAssets.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.subBalanceText}>Nakit: ₺{(user?.balance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> </div> <div style={styles.headerRight}> <div style={styles.marketStatusContainer}> <div style={{ ...styles.marketStatusIndicator, ...(isMarketOpen ? styles.marketOpen : styles.marketClosed) }} /> <span style={styles.marketStatusText}>{isMarketOpen ? 'Piyasa Açık' : 'Piyasa Kapalı'}</span> </div> {user.isFounder && (<button style={styles.overrideButton} onClick={handleMarketOverrideToggle}> {overrideButtonText} </button>)} <span onClick={handleLogout} style={styles.logoutText}>Çıkış</span> </div> </header> <main style={styles.contentArea}>{content}</main> <nav style={styles.navBar}> <button style={styles.navButton} onClick={() => setActiveTab('piyasa')}> <span style={{...styles.navText, ...(activeTab === 'piyasa' && styles.navTextActive)}}>Piyasa</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('doviz')}> <span style={{...styles.navText, ...(activeTab === 'doviz' && styles.navTextActive)}}>Döviz & Emtia</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('portfoy')}> <span style={{...styles.navText, ...(activeTab === 'portfoy' && styles.navTextActive)}}>Portföy</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('haberler')}> <span style={{...styles.navText, ...(activeTab === 'haberler' && styles.navTextActive)}}>Haberler</span> </button> </nav> </div> );
+    return ( <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}> <header style={styles.header}> <div> <p style={styles.headerText}>Toplam Varlık {user.isFounder && '(Yönetici)'}</p> <p style={styles.balanceText}>₺{totalAssets.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.subBalanceText}>Nakit: ₺{(user?.balance || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> </div> <div style={styles.headerRight}> <div style={styles.marketStatusContainer}> <div style={{ ...styles.marketStatusIndicator, ...(isMarketOpen ? styles.marketOpen : styles.marketClosed) }} /> <span style={styles.marketStatusText}>{isMarketOpen ? 'AÇIK' : 'KAPALI'}</span> </div> {user.isFounder && (<button style={styles.overrideButton} onClick={handleMarketOverrideToggle}> {overrideButtonText} </button>)} <span onClick={handleLogout} style={styles.logoutText}>Çıkış</span> </div> </header> <main style={styles.contentArea}>{content}</main> <nav style={styles.navBar}> <button style={styles.navButton} onClick={() => setActiveTab('piyasa')}> <span style={{...styles.navText, ...(activeTab === 'piyasa' && styles.navTextActive)}}>Piyasa</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('doviz')}> <span style={{...styles.navText, ...(activeTab === 'doviz' && styles.navTextActive)}}>Döviz</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('portfoy')}> <span style={{...styles.navText, ...(activeTab === 'portfoy' && styles.navTextActive)}}>Portföy</span> </button> <button style={styles.navButton} onClick={() => setActiveTab('haberler')}> <span style={{...styles.navText, ...(activeTab === 'haberler' && styles.navTextActive)}}>Haberler</span> </button> </nav> </div> );
   };
   
   if (user === undefined) {
