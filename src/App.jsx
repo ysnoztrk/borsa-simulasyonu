@@ -275,6 +275,11 @@ export default function App() {
   const [assignSessionId, setAssignSessionId] = useState('');
   const [selectedSessionUserEmail, setSelectedSessionUserEmail] = useState(null);
 
+  // Hisse yönetimi formu
+  const [stockFormTicker, setStockFormTicker] = useState('');
+  const [stockFormName, setStockFormName] = useState('');
+  const [stockFormPrice, setStockFormPrice] = useState('');
+
   const [marketStatus, setMarketStatus] = useState({
       isScheduledOpen: false, manualOverride: null, volatilityMultiplier: 1.0, overrideExpiry: null,
   });
@@ -757,6 +762,54 @@ export default function App() {
       };
   };
 
+  // --- HİSSE YÖNETİMİ ---
+  const handleEditStock = (ticker) => {
+      const asset = companies.find(c => c.ticker === ticker);
+      if (!asset) return;
+      setStockFormTicker(asset.ticker);
+      setStockFormName(asset.name || '');
+      setStockFormPrice(asset.price != null ? String(asset.price) : '');
+  };
+
+  const handleResetStockForm = () => {
+      setStockFormTicker('');
+      setStockFormName('');
+      setStockFormPrice('');
+  };
+
+  const handleSaveStock = async () => {
+      const tickerRaw = stockFormTicker.trim();
+      const name = stockFormName.trim();
+      const priceNum = parseFloat(stockFormPrice);
+
+      if (!tickerRaw || !name || isNaN(priceNum) || priceNum <= 0) {
+          showModal("Hisse kısaltması, isim ve geçerli bir başlangıç fiyatı girin.");
+          return;
+      }
+
+      const ticker = tickerRaw.toUpperCase();
+
+      try {
+          await setDoc(
+              doc(db, 'marketData', ticker),
+              {
+                  name,
+                  ticker,
+                  price: parseFloat(priceNum.toFixed(2)),
+                  change: 0,
+                  lastChangePercent: 0,
+                  isReal: false,
+              },
+              { merge: true }
+          );
+          handleResetStockForm();
+          showModal("Hisse başarıyla kaydedildi.");
+      } catch (err) {
+          console.error("Hisse kaydedilemedi:", err);
+          showModal("Hisse kaydedilirken bir hata oluştu.");
+      }
+  };
+
   // --- SLIDER HANDLER ---
   const handleVolatilityChange = (e) => {
       let newVal = parseFloat(e.target.value);
@@ -823,7 +876,56 @@ export default function App() {
     const priceChangeStyle = changeAmount >= 0 ? styles.priceUp : styles.priceDown;
     const tradeButtonsDisabled = !isMarketOpen;
 
-    return ( <div key={asset.ticker} style={styles.stockRow} onClick={() => handleStockClick(asset)}> <div style={styles.stockInfo}> <div style={{display: 'flex', alignItems: 'center'}}> <p style={styles.stockTicker}>{asset.ticker}</p> {asset.isReal && <span style={{...styles.statusBadge, ...styles.statusReal}}>CANLI</span>} {!asset.isReal && <span style={{...styles.statusBadge, ...styles.statusSim}}>SİM</span>} </div> <p style={styles.stockName}>{asset.name}</p> </div> <div style={styles.stockPriceContainer}> <p style={styles.stockPrice}>₺{asset.price.toFixed(2)}</p> <span style={{ ...styles.stockChange, ...priceChangeStyle }}> {percentageChange.toFixed(2)}% </span> </div> <div style={styles.stockActions}> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.buyButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'buy'); }}>Al</button> <button disabled={tradeButtonsDisabled} style={{...styles.tradeButton, ...styles.sellButton, ...(tradeButtonsDisabled && styles.tradeButtonDisabled)}} onClick={(e) => { e.stopPropagation(); openTradeModal(asset, 'sell'); }}>Sat</button> </div> </div> );
+    return (
+      <div
+        key={asset.ticker}
+        style={styles.stockRow}
+        onClick={() => handleStockClick(asset)}
+      >
+        <div style={styles.stockInfo}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <p style={styles.stockTicker}>{asset.ticker}</p>
+          </div>
+          <p style={styles.stockName}>{asset.name}</p>
+        </div>
+        <div style={styles.stockPriceContainer}>
+          <p style={styles.stockPrice}>₺{asset.price.toFixed(2)}</p>
+          <span style={{ ...styles.stockChange, ...priceChangeStyle }}>
+            {percentageChange.toFixed(2)}%
+          </span>
+        </div>
+        <div style={styles.stockActions}>
+          <button
+            disabled={tradeButtonsDisabled}
+            style={{
+              ...styles.tradeButton,
+              ...styles.buyButton,
+              ...(tradeButtonsDisabled && styles.tradeButtonDisabled),
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openTradeModal(asset, 'buy');
+            }}
+          >
+            Al
+          </button>
+          <button
+            disabled={tradeButtonsDisabled}
+            style={{
+              ...styles.tradeButton,
+              ...styles.sellButton,
+              ...(tradeButtonsDisabled && styles.tradeButtonDisabled),
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openTradeModal(asset, 'sell');
+            }}
+          >
+            Sat
+          </button>
+        </div>
+      </div>
+    );
   };
   
   const renderMarket = () => ( <div style={{paddingBottom: 20}}> {companies.map(company => <AssetRow key={company.ticker} asset={company} />)} </div> );
@@ -839,7 +941,36 @@ export default function App() {
     return ( <div style={{paddingBottom: 20}}> {portfolioItems.map(ticker => { const asset = allAssets.find(a => a.ticker === ticker); if (!asset) return null; const amount = user.portfolio[ticker]; const currentValue = asset.price * amount; return ( <div key={ticker} style={styles.portfolioRow}> <div> <p style={styles.stockTicker}>{ticker}</p> <p style={styles.stockName}>{amount.toFixed(4)} Adet</p> </div> <div style={{textAlign: 'right'}}> <p style={styles.stockPrice}>₺{currentValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p> <p style={styles.stockName}>Birim Fiyat: ₺{asset.price.toFixed(2)}</p> </div> </div> ); })} </div> );
   };
   
-  const renderNews = () => ( <div style={{paddingBottom: 20}}> <div style={styles.newsHeader}> <h2 style={{margin: '15px 0'}}>Haberler</h2> <button style={styles.secondaryButton} onClick={() => setColumnsModalVisible(true)}>Köşe Yazıları</button> </div> {user.isFounder && ( <div style={styles.addNewsButton} onClick={() => setAddNewsModalVisible(true)}> + Yeni Haber Ekle </div> )} {news.map(item => ( <div key={item.id} style={styles.newsCard}> {user.isFounder && <button style={styles.deleteButton} onClick={() => handleDeleteNews(item.id)}><TrashIcon /></button>} <h3 style={styles.newsTitle}>{item.title}</h3> <p style={styles.newsContent}>{item.content}</p> <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> {typeof item.isFake === 'boolean' && ( <p style={{ fontSize: 11, color: item.isFake ? '#dc3545' : '#28a745' }}> {item.isFake ? 'Yalan Haber' : 'Gerçek Haber'} </p> )} </div> ))} </div> );
+  const renderNews = () => ( 
+    <div style={{paddingBottom: 20}}> 
+      <div style={styles.newsHeader}> 
+        <h2 style={{margin: '15px 0'}}>Haberler</h2> 
+        <button style={styles.secondaryButton} onClick={() => setColumnsModalVisible(true)}>Köşe Yazıları</button> 
+      </div> 
+      {user.isFounder && ( 
+        <div style={styles.addNewsButton} onClick={() => setAddNewsModalVisible(true)}> 
+          + Yeni Haber Ekle 
+        </div> 
+      )} 
+      {news.map(item => ( 
+        <div key={item.id} style={styles.newsCard}> 
+          {user.isFounder && (
+            <button style={styles.deleteButton} onClick={() => handleDeleteNews(item.id)}>
+              <TrashIcon />
+            </button>
+          )} 
+          <h3 style={styles.newsTitle}>{item.title}</h3> 
+          <p style={styles.newsContent}>{item.content}</p> 
+          <p style={styles.newsDate}>{new Date(item.date).toLocaleString('tr-TR')}</p> 
+          {user.isFounder && typeof item.isFake === 'boolean' && ( 
+            <p style={{ fontSize: 11, color: item.isFake ? '#dc3545' : '#28a745' }}> 
+              {item.isFake ? 'Yalan Haber' : 'Gerçek Haber'} 
+            </p> 
+          )} 
+        </div> 
+      ))} 
+    </div> 
+  );
   
   const renderAdmin = () => {
     const selectedSession = sessions.find(s => s.id === selectedSessionId) || null;
@@ -913,6 +1044,78 @@ export default function App() {
             onChange={(e) => setNewSessionDurationDays(e.target.value)}
           />
           <button style={styles.button} onClick={handleCreateSession}>Oturumu Başlat</button>
+        </div>
+
+        <div style={{ marginBottom: 25, padding: 15, backgroundColor: '#1e1e1e', borderRadius: 10 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 10 }}>Hisse Yönetimi</h3>
+          <p style={{ ...styles.modalInfo, marginBottom: 10 }}>
+            Buradan yeni simülasyon hisseleri ekleyebilir veya mevcutların adını/fiyatını güncelleyebilirsin.
+            Eklediğin hisseler otomatik olarak piyasa motoruna dahil olur.
+          </p>
+
+          <div style={{ marginBottom: 10 }}>
+            <input
+              style={styles.input}
+              placeholder="Hisse Kısaltması (örn. TKNDV)"
+              value={stockFormTicker}
+              onChange={(e) => setStockFormTicker(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              placeholder="Hisse Adı"
+              value={stockFormName}
+              onChange={(e) => setStockFormName(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              type="number"
+              placeholder="Başlangıç Fiyatı"
+              value={stockFormPrice}
+              onChange={(e) => setStockFormPrice(e.target.value)}
+            />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button style={{ ...styles.button, flex: 1 }} onClick={handleSaveStock}>
+                Kaydet
+              </button>
+              <button
+                style={{ ...styles.secondaryButton, flex: 1, textAlign: 'center' }}
+                onClick={handleResetStockForm}
+              >
+                Temizle
+              </button>
+            </div>
+          </div>
+
+          <h4 style={{ marginTop: 20, marginBottom: 8 }}>Mevcut Hisseler</h4>
+          <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+            {companies.map(c => (
+              <div
+                key={c.ticker}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '6px 0',
+                  borderBottom: '1px solid #2a2a2a',
+                  fontSize: 13,
+                }}
+              >
+                <div>
+                  <span style={{ fontWeight: 'bold' }}>{c.ticker}</span>{' '}
+                  <span style={{ color: '#aaa' }}>{c.name}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span>₺{c.price.toFixed(2)}</span>
+                  <button
+                    style={{ ...styles.secondaryButton, padding: '4px 8px', fontSize: 11 }}
+                    onClick={() => handleEditStock(c.ticker)}
+                  >
+                    Düzenle
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={{ marginBottom: 25, padding: 15, backgroundColor: '#1e1e1e', borderRadius: 10 }}>
