@@ -186,7 +186,7 @@ const generateMasterHistory = (ticker) => {
     return data;
 };
 
-const getRangeData = (masterData, range, currentPrice) => {
+const getRangeData = (masterData, range, currentPrice, realHistoryData = []) => {
     if (!currentPrice || isNaN(currentPrice) || !masterData || masterData.length === 0) {
         return { labels: [], data: [], labelFormat: 'full' };
     }
@@ -207,18 +207,66 @@ const getRangeData = (masterData, range, currentPrice) => {
         default: daysToTake = 30; labelFormat = 'full';
     }
 
+    // Gerçek history'yi işle: timestamp ve price içeren array
+    const realPoints = realHistoryData
+        .map(h => ({
+            timestamp: h.timestamp?.toDate ? h.timestamp.toDate() : new Date(h.timestamp),
+            price: typeof h.price === 'number' ? h.price : parseFloat(h.price)
+        }))
+        .filter(h => !isNaN(h.price) && h.price > 0)
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+    const cutoffDate = new Date(now.getTime() - daysToTake * 24 * 60 * 60 * 1000);
+    const recentRealPoints = realPoints.filter(p => p.timestamp >= cutoffDate);
+
+    // Sanal master seriden gerekli kısmı al
     const slicedDataRaw = masterData.slice(-daysToTake);
     
-    const lastFakePrice = slicedDataRaw[slicedDataRaw.length - 1];
-    const ratio = currentPrice / lastFakePrice;
-    const finalData = slicedDataRaw.map(p => parseFloat((p * ratio).toFixed(2)));
-    
-    const labels = [];
-    for (let i = 0; i < finalData.length; i++) {
-        const dayOffset = finalData.length - 1 - i;
-        const date = new Date();
-        date.setDate(now.getDate() - dayOffset);
-        labels.push(date.toISOString()); 
+    let finalData = [];
+    let labels = [];
+
+    if (recentRealPoints.length > 0) {
+        // Gerçek veriler varsa: gerçek verileri kullan, eksik kısımları sanal seriyle doldur
+        const oldestRealDate = recentRealPoints[0].timestamp;
+        const oldestRealPrice = recentRealPoints[0].price;
+        
+        // Sanal seriden, gerçek verilerin başlangıcından önceki kısmı al
+        const fakeDaysNeeded = Math.ceil((oldestRealDate - cutoffDate) / (24 * 60 * 60 * 1000));
+        const fakeSlice = slicedDataRaw.slice(0, Math.max(0, slicedDataRaw.length - recentRealPoints.length));
+        
+        // Sanal kısmı gerçek başlangıç fiyatına göre ölçekle
+        if (fakeSlice.length > 0) {
+            const lastFakePrice = fakeSlice[fakeSlice.length - 1];
+            const ratio = oldestRealPrice / lastFakePrice;
+            const scaledFake = fakeSlice.map(p => parseFloat((p * ratio).toFixed(2)));
+            
+            // Sanal kısmın tarihleri
+            for (let i = 0; i < scaledFake.length; i++) {
+                const dayOffset = scaledFake.length - 1 - i;
+                const date = new Date(oldestRealDate);
+                date.setDate(date.getDate() - dayOffset);
+                labels.push(date.toISOString());
+                finalData.push(scaledFake[i]);
+            }
+        }
+        
+        // Gerçek verileri ekle
+        recentRealPoints.forEach(p => {
+            labels.push(p.timestamp.toISOString());
+            finalData.push(p.price);
+        });
+    } else {
+        // Gerçek veri yoksa: tamamen sanal seriyi kullan (eski davranış)
+        const lastFakePrice = slicedDataRaw[slicedDataRaw.length - 1];
+        const ratio = currentPrice / lastFakePrice;
+        finalData = slicedDataRaw.map(p => parseFloat((p * ratio).toFixed(2)));
+        
+        for (let i = 0; i < finalData.length; i++) {
+            const dayOffset = finalData.length - 1 - i;
+            const date = new Date();
+            date.setDate(now.getDate() - dayOffset);
+            labels.push(date.toISOString()); 
+        }
     }
 
     return { labels, data: finalData, labelFormat };
@@ -253,6 +301,7 @@ export default function App() {
   
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedStockForDetail, setSelectedStockForDetail] = useState(null);
+  const [realHistory, setRealHistory] = useState([]); // Gerçek zamanlı fiyat geçmişi
   const [chartData, setChartData] = useState(null);
   const [chartTimeRange, setChartTimeRange] = useState('1A'); 
   const [isChartLoading, setIsChartLoading] = useState(false);
@@ -835,10 +884,33 @@ export default function App() {
       setDetailModalVisible(true);
   };
 
+  // Seçili hisse için gerçek zamanlı history'yi dinle
+  useEffect(() => {
+      if (!selectedStockForDetail || !selectedStockForDetail.ticker) {
+          setRealHistory([]);
+          return;
+      }
+
+      const historyRef = collection(db, 'marketData', selectedStockForDetail.ticker, 'history');
+      const unsubscribe = onSnapshot(
+          query(historyRef, orderBy('timestamp', 'desc')),
+          (snapshot) => {
+              const historyData = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+              setRealHistory(historyData);
+          },
+          (error) => {
+              console.error("History okuma hatası:", error);
+              setRealHistory([]);
+          }
+      );
+
+      return () => unsubscribe();
+  }, [selectedStockForDetail]);
+
   useEffect(() => {
       if (selectedStockForDetail && masterHistory.length > 0) {
           setIsChartLoading(true);
-          const { labels, data, labelFormat } = getRangeData(masterHistory, chartTimeRange, selectedStockForDetail.price);
+          const { labels, data, labelFormat } = getRangeData(masterHistory, chartTimeRange, selectedStockForDetail.price, realHistory);
           setChartLabelFormat(labelFormat); 
           setChartData({ 
               labels: labels, 
@@ -855,7 +927,7 @@ export default function App() {
           });
           setIsChartLoading(false);
       }
-  }, [selectedStockForDetail, chartTimeRange, masterHistory]); 
+  }, [selectedStockForDetail, chartTimeRange, masterHistory, realHistory]); 
 
   const renderAuthScreens = () => ( 
     <div style={styles.authContainer}> 
