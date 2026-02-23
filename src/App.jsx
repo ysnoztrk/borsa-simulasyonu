@@ -282,6 +282,7 @@ export default function App() {
 
   const [companies, setCompanies] = useState([]);
   const [forex, setForex] = useState([]);
+  const [cryptos, setCryptos] = useState([]);
 
   const [displayedAssets, setDisplayedAssets] = useState({});
 
@@ -440,6 +441,10 @@ export default function App() {
       }
     });
 
+    const unsubCryptos = onSnapshot(query(collection(db, 'cryptoData')), (snapshot) => {
+      setCryptos(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, ticker: doc.id })));
+    });
+
     const unsubNews = onSnapshot(query(collection(db, 'news'), orderBy('date', 'desc')), (snapshot) => {
       setNews(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
     });
@@ -490,6 +495,7 @@ export default function App() {
     return () => {
       unsubCompanies();
       unsubForex();
+      unsubCryptos();
       unsubNews();
       unsubColumns();
       unsubMarket();
@@ -521,7 +527,7 @@ export default function App() {
 
   const openTradeModal = (asset, action) => {
     setDetailModalVisible(false);
-    const officialAsset = [...companies, ...forex].find(a => a.ticker === asset.ticker);
+    const officialAsset = [...companies, ...forex, ...cryptos].find(a => a.ticker === asset.ticker);
     setSelectedAsset(officialAsset);
     setTradeAction(action);
     setTradeModalVisible(true);
@@ -797,7 +803,7 @@ export default function App() {
     const fakeNewsCount = newsInRange.filter(n => n.isFake).length;
 
     // Katılımcıların güncel toplam varlıkları ve yaklaşık kârları
-    const allAssets = [...companies, ...forex];
+    const allAssets = [...companies, ...forex, ...cryptos];
     const participantStats = participantEmails.map(email => {
       const u = allUsers.find(usr => usr.email === email);
       if (!u) return { email, totalAssets: 0, profit: 0 };
@@ -1063,10 +1069,11 @@ export default function App() {
 
   const renderMarket = () => (<div style={{ paddingBottom: 20 }}> {companies.map(company => <AssetRow key={company.ticker} asset={company} />)} </div>);
   const renderForex = () => (<div style={{ paddingBottom: 20 }}> {forex.map(fx => <AssetRow key={fx.ticker} asset={fx} />)} </div>);
+  const renderCrypto = () => (<div style={{ paddingBottom: 20 }}> {cryptos.map(crypto => <AssetRow key={crypto.ticker} asset={crypto} />)} </div>);
 
   const renderPortfolio = () => {
     if (!user || !user.portfolio) return null;
-    const allAssets = [...companies, ...forex];
+    const allAssets = [...companies, ...forex, ...cryptos];
     const portfolioItems = Object.keys(user.portfolio);
     if (portfolioItems.length === 0) {
       return <div style={styles.centerMessage}><p style={styles.centerMessageText}>Portföyünüzde hiç varlık yok.</p></div>;
@@ -1447,12 +1454,13 @@ export default function App() {
     let content;
     switch (activeTab) {
       case 'doviz': content = renderForex(); break;
+      case 'kripto': content = renderCrypto(); break;
       case 'portfoy': content = renderPortfolio(); break;
       case 'haberler': content = renderNews(); break;
       case 'yonetim': content = user.isFounder ? renderAdmin() : renderMarket(); break;
       default: content = renderMarket();
     }
-    const allAssets = [...companies, ...forex];
+    const allAssets = [...companies, ...forex, ...cryptos];
     const portfolioValue = (user && user.portfolio && allAssets.length > 0) ? Object.keys(user.portfolio).reduce((total, ticker) => { const asset = allAssets.find(a => a.ticker === ticker); return total + (asset ? asset.price * user.portfolio[ticker] : 0); }, 0) : 0;
     const totalAssets = (user?.balance || 0) + portfolioValue;
     let overrideButtonText;
@@ -1508,6 +1516,9 @@ export default function App() {
           </button>
           <button style={styles.navButton} onClick={() => setActiveTab('doviz')}>
             <span style={{ ...styles.navText, ...(activeTab === 'doviz' && styles.navTextActive) }}>Döviz</span>
+          </button>
+          <button style={styles.navButton} onClick={() => setActiveTab('kripto')}>
+            <span style={{ ...styles.navText, ...(activeTab === 'kripto' && styles.navTextActive) }}>Kripto</span>
           </button>
           <button style={styles.navButton} onClick={() => setActiveTab('portfoy')}>
             <span style={{ ...styles.navText, ...(activeTab === 'portfoy' && styles.navTextActive) }}>Portföy</span>
